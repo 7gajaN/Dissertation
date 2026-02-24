@@ -1,0 +1,377 @@
+\begin{thebibliography}{10}\itemsep=-1pt
+
+\bibitem{au2022choreograph}
+Ho~Yin Au, Jie Chen, Junkun Jiang, and Yike Guo.
+\newblock Choreograph: Music-conditioned automatic dance choreography over a
+  style and tempo consistent dynamic graph.
+\newblock In {\em Proceedings of the 30th ACM International Conference on
+  Multimedia}, pages 3917--3925, 2022.
+
+\bibitem{brown2008neuroscience}
+Steven Brown and Lawrence~M Parsons.
+\newblock The neuroscience of dance.
+\newblock {\em Scientific American}, 299(1):78--83, 2008.
+
+\bibitem{castellon2021codified}
+Rodrigo Castellon, Chris Donahue, and Percy Liang.
+\newblock Codified audio language modeling learns useful representations for
+  music information retrieval.
+\newblock {\em arXiv preprint arXiv:2107.05677}, 2021.
+
+\bibitem{chen2021choreomaster}
+Kang Chen, Zhipeng Tan, Jin Lei, Song-Hai Zhang, Yuan-Chen Guo, Weidong Zhang,
+  and Shi-Min Hu.
+\newblock Choreomaster: choreography-oriented music-driven dance synthesis.
+\newblock {\em ACM Transactions on Graphics (TOG)}, 40(4):1--13, 2021.
+
+\bibitem{dhariwal2020jukebox}
+Prafulla Dhariwal, Heewoo Jun, Christine Payne, Jong~Wook Kim, Alec Radford,
+  and Ilya Sutskever.
+\newblock Jukebox: A generative model for music.
+\newblock {\em arXiv preprint arXiv:2005.00341}, 2020.
+
+\bibitem{dhariwal2021diffusion}
+Prafulla Dhariwal and Alexander Nichol.
+\newblock Diffusion models beat gans on image synthesis.
+\newblock {\em Advances in Neural Information Processing Systems},
+  34:8780--8794, 2021.
+
+\bibitem{donahue2021sheet}
+Chris Donahue and Percy Liang.
+\newblock Sheet sage: Lead sheets from music audio.
+\newblock 2021.
+
+\bibitem{duan2022unified}
+Yinglin Duan, Yue Lin, Zhengxia Zou, Yi Yuan, Zhehui Qian, and Bohan Zhang.
+\newblock A unified framework for real time motion completion.
+\newblock 2022.
+
+\bibitem{elo1978rating}
+Arpad~E Elo.
+\newblock {\em The rating of chessplayers, past and present}.
+\newblock Arco Pub., 1978.
+
+\bibitem{fan2022bi}
+Di Fan, Lili Wan, Wanru Xu, and Shenghui Wang.
+\newblock A bi-directional attention guided cross-modal network for music based
+  dance generation.
+\newblock {\em Computers and Electrical Engineering}, 103:108310, 2022.
+
+\bibitem{fan2011example}
+Rukun Fan, Songhua Xu, and Weidong Geng.
+\newblock Example-based automatic music-driven conventional dance motion
+  synthesis.
+\newblock {\em IEEE transactions on visualization and computer graphics},
+  18(3):501--515, 2011.
+
+\bibitem{goodfellow2020generative}
+Ian Goodfellow, Jean Pouget-Abadie, Mehdi Mirza, Bing Xu, David Warde-Farley,
+  Sherjil Ozair, Aaron Courville, and Yoshua Bengio.
+\newblock Generative adversarial networks.
+\newblock {\em Communications of the ACM}, 63(11):139--144, 2020.
+
+\bibitem{gopinath2020fairmotion}
+Deepak Gopinath and Jungdam Won.
+\newblock fairmotion - tools to load, process and visualize motion capture
+  data.
+\newblock Github, 2020.
+
+\bibitem{guo2022generating}
+Chuan Guo, Shihao Zou, Xinxin Zuo, Sen Wang, Wei Ji, Xingyu Li, and Li Cheng.
+\newblock Generating diverse and natural 3d human motions from text.
+\newblock In {\em Proceedings of the IEEE/CVF Conference on Computer Vision and
+  Pattern Recognition}, pages 5152--5161, 2022.
+
+\bibitem{guo2020action2motion}
+Chuan Guo, Xinxin Zuo, Sen Wang, Shihao Zou, Qingyao Sun, Annan Deng, Minglun
+  Gong, and Li Cheng.
+\newblock Action2motion: Conditioned generation of 3d human motions.
+\newblock In {\em Proceedings of the 28th ACM International Conference on
+  Multimedia}, pages 2021--2029, 2020.
+
+\bibitem{harvey2022flexible}
+William Harvey, Saeid Naderiparizi, Vaden Masrani, Christian Weilbach, and
+  Frank Wood.
+\newblock Flexible diffusion modeling of long videos.
+\newblock {\em arXiv preprint arXiv:2205.11495}, 2022.
+
+\bibitem{he2022nemf}
+Chengan He, Jun Saito, James Zachary, Holly Rushmeier, and Yi Zhou.
+\newblock Nemf: Neural motion fields for kinematic animation.
+\newblock {\em arXiv preprint arXiv:2206.03287}, 2022.
+
+\bibitem{ho2022imagen}
+Jonathan Ho, William Chan, Chitwan Saharia, Jay Whang, Ruiqi Gao, Alexey
+  Gritsenko, Diederik~P Kingma, Ben Poole, Mohammad Norouzi, David~J Fleet,
+  et~al.
+\newblock Imagen video: High definition video generation with diffusion models.
+\newblock {\em arXiv preprint arXiv:2210.02303}, 2022.
+
+\bibitem{ho2020denoising}
+Jonathan Ho, Ajay Jain, and Pieter Abbeel.
+\newblock Denoising diffusion probabilistic models.
+\newblock {\em Advances in Neural Information Processing Systems},
+  33:6840--6851, 2020.
+
+\bibitem{ho2022classifier}
+Jonathan Ho and Tim Salimans.
+\newblock Classifier-free diffusion guidance.
+\newblock {\em arXiv preprint arXiv:2207.12598}, 2022.
+
+\bibitem{holden2020learned}
+Daniel Holden, Oussama Kanoun, Maksym Perepichka, and Tiberiu Popa.
+\newblock Learned motion matching.
+\newblock {\em ACM Transactions on Graphics (TOG)}, 39(4):53--1, 2020.
+
+\bibitem{holden2016deep}
+Daniel Holden, Jun Saito, and Taku Komura.
+\newblock A deep learning framework for character motion synthesis and editing.
+\newblock {\em ACM Transactions on Graphics (TOG)}, 35(4):1--11, 2016.
+
+\bibitem{huang2022genre}
+Yuhang Huang, Junjie Zhang, Shuyan Liu, Qian Bao, Dan Zeng, Zhineng Chen, and
+  Wu Liu.
+\newblock Genre-conditioned long-term 3d dance generation driven by music.
+\newblock In {\em ICASSP 2022-2022 IEEE International Conference on Acoustics,
+  Speech and Signal Processing (ICASSP)}, pages 4858--4862. IEEE, 2022.
+
+\bibitem{kennedy2020shape}
+Ryan Kennedy, Scott Clifford, Tyler Burleigh, Philip~D Waggoner, Ryan Jewell,
+  and Nicholas~JG Winter.
+\newblock The shape of and solutions to the mturk quality crisis.
+\newblock {\em Political Science Research and Methods}, 8(4):614--629, 2020.
+
+\bibitem{kim2022flame}
+Jihoon Kim, Jiseob Kim, and Sungjoon Choi.
+\newblock Flame: Free-form language-based motion synthesis \& editing.
+\newblock {\em arXiv preprint arXiv:2209.00349}, 2022.
+
+\bibitem{kim2022brand}
+Jinwoo Kim, Heeseok Oh, Seongjean Kim, Hoseok Tong, and Sanghoon Lee.
+\newblock A brand new dance partner: Music-conditioned pluralistic dancing
+  controlled by multiple dance genres.
+\newblock In {\em Proceedings of the IEEE/CVF Conference on Computer Vision and
+  Pattern Recognition}, pages 3490--3500, 2022.
+
+\bibitem{kingma2019introduction}
+Diederik~P Kingma, Max Welling, et~al.
+\newblock An introduction to variational autoencoders.
+\newblock {\em Foundations and Trends{\textregistered} in Machine Learning},
+  12(4):307--392, 2019.
+
+\bibitem{lamothe2019dancing}
+Kimerer LaMothe.
+\newblock The dancing species: how moving together in time helps make us human.
+\newblock {\em Aeon, June}, 1, 2019.
+
+\bibitem{lee2013music}
+Minho Lee, Kyogu Lee, and Jaeheung Park.
+\newblock Music similarity-based approach to generating dance motion sequence.
+\newblock {\em Multimedia tools and applications}, 62(3):895--912, 2013.
+
+\bibitem{li2022danceformer}
+Buyu Li, Yongchi Zhao, Shi Zhelun, and Lu Sheng.
+\newblock Danceformer: Music conditioned 3d dance generation with parametric
+  motion transformer.
+\newblock In {\em Proceedings of the AAAI Conference on Artificial
+  Intelligence}, volume~36, pages 1272--1279, 2022.
+
+\bibitem{li2020learning}
+Jiaman Li, Yihang Yin, Hang Chu, Yi Zhou, Tingwu Wang, Sanja Fidler, and Hao
+  Li.
+\newblock Learning to generate diverse dance motions with transformer.
+\newblock {\em arXiv preprint arXiv:2008.08171}, 2020.
+
+\bibitem{li2021ai}
+Ruilong Li, Shan Yang, David~A Ross, and Angjoo Kanazawa.
+\newblock Ai choreographer: Music conditioned 3d dance generation with aist++.
+\newblock In {\em Proceedings of the IEEE/CVF International Conference on
+  Computer Vision}, pages 13401--13412, 2021.
+
+\bibitem{ling2020character}
+Hung~Yu Ling, Fabio Zinno, George Cheng, and Michiel Van De~Panne.
+\newblock Character controllers using motion vaes.
+\newblock {\em ACM Transactions on Graphics (TOG)}, 39(4):40--1, 2020.
+
+\bibitem{loper2015smpl}
+Matthew Loper, Naureen Mahmood, Javier Romero, Gerard Pons-Moll, and Michael~J
+  Black.
+\newblock Smpl: A skinned multi-person linear model.
+\newblock {\em ACM transactions on graphics (TOG)}, 34(6):1--16, 2015.
+
+\bibitem{lugmayr2022repaint}
+Andreas Lugmayr, Martin Danelljan, Andres Romero, Fisher Yu, Radu Timofte, and
+  Luc Van~Gool.
+\newblock Repaint: Inpainting using denoising diffusion probabilistic models.
+\newblock In {\em Proceedings of the IEEE/CVF Conference on Computer Vision and
+  Pattern Recognition}, pages 11461--11471, 2022.
+
+\bibitem{mcfee2015librosa}
+Brian McFee, Colin Raffel, Dawen Liang, Daniel~P Ellis, Matt McVicar, Eric
+  Battenberg, and Oriol Nieto.
+\newblock librosa: Audio and music signal analysis in python.
+\newblock In {\em Proceedings of the 14th python in science conference},
+  volume~8, pages 18--25, 2015.
+
+\bibitem{mirza2014conditional}
+Mehdi Mirza and Simon Osindero.
+\newblock Conditional generative adversarial nets.
+\newblock {\em arXiv preprint arXiv:1411.1784}, 2014.
+
+\bibitem{muller2005efficient}
+Meinard M{\"u}ller, Tido R{\"o}der, and Michael Clausen.
+\newblock Efficient content-based retrieval of motion capture data.
+\newblock In {\em ACM SIGGRAPH 2005 Papers}, pages 677--685. 2005.
+
+\bibitem{ofli2011learn2dance}
+Ferda Ofli, Engin Erzin, Y{\"u}cel Yemez, and A~Murat Tekalp.
+\newblock Learn2dance: Learning statistical music-to-dance mappings for
+  choreography synthesis.
+\newblock {\em IEEE Transactions on Multimedia}, 14(3):747--759, 2011.
+
+\bibitem{onuma2008fmdistance}
+Kensuke Onuma, Christos Faloutsos, and Jessica~K Hodgins.
+\newblock Fmdistance: A fast and effective distance function for motion capture
+  data.
+\newblock In {\em Eurographics (Short Papers)}, pages 83--86, 2008.
+
+\bibitem{perez2018film}
+Ethan Perez, Florian Strub, Harm De~Vries, Vincent Dumoulin, and Aaron
+  Courville.
+\newblock Film: Visual reasoning with a general conditioning layer.
+\newblock In {\em Proceedings of the AAAI Conference on Artificial
+  Intelligence}, volume~32, 2018.
+
+\bibitem{petrovich2021action}
+Mathis Petrovich, Michael~J Black, and G{\"u}l Varol.
+\newblock Action-conditioned 3d human motion synthesis with transformer vae.
+\newblock In {\em Proceedings of the IEEE/CVF International Conference on
+  Computer Vision}, pages 10985--10995, 2021.
+
+\bibitem{petrovich2022temos}
+Mathis Petrovich, Michael~J Black, and G{\"u}l Varol.
+\newblock Temos: Generating diverse human motions from textual descriptions.
+\newblock {\em arXiv preprint arXiv:2204.14109}, 2022.
+
+\bibitem{pu2022music}
+Junfu Pu and Ying Shan.
+\newblock Music-driven dance regeneration with controllable key pose
+  constraints.
+\newblock {\em arXiv preprint arXiv:2207.03682}, 2022.
+
+\bibitem{rempe2021humor}
+Davis Rempe, Tolga Birdal, Aaron Hertzmann, Jimei Yang, Srinath Sridhar, and
+  Leonidas~J Guibas.
+\newblock Humor: 3d human motion model for robust pose estimation.
+\newblock In {\em Proceedings of the IEEE/CVF International Conference on
+  Computer Vision}, pages 11488--11499, 2021.
+
+\bibitem{rombach2022high}
+Robin Rombach, Andreas Blattmann, Dominik Lorenz, Patrick Esser, and Bj{\"o}rn
+  Ommer.
+\newblock High-resolution image synthesis with latent diffusion models.
+\newblock In {\em Proceedings of the IEEE/CVF Conference on Computer Vision and
+  Pattern Recognition}, pages 10684--10695, 2022.
+
+\bibitem{saharia2022palette}
+Chitwan Saharia, William Chan, Huiwen Chang, Chris Lee, Jonathan Ho, Tim
+  Salimans, David Fleet, and Mohammad Norouzi.
+\newblock Palette: Image-to-image diffusion models.
+\newblock In {\em ACM SIGGRAPH 2022 Conference Proceedings}, pages 1--10, 2022.
+
+\bibitem{saharia2022photorealistic}
+Chitwan Saharia, William Chan, Saurabh Saxena, Lala Li, Jay Whang, Emily
+  Denton, Seyed Kamyar~Seyed Ghasemipour, Burcu~Karagol Ayan, S~Sara Mahdavi,
+  Rapha~Gontijo Lopes, et~al.
+\newblock Photorealistic text-to-image diffusion models with deep language
+  understanding.
+\newblock {\em arXiv preprint arXiv:2205.11487}, 2022.
+
+\bibitem{sharif2014cnn}
+Ali Sharif~Razavian, Hossein Azizpour, Josephine Sullivan, and Stefan Carlsson.
+\newblock Cnn features off-the-shelf: an astounding baseline for recognition.
+\newblock In {\em Proceedings of the IEEE conference on computer vision and
+  pattern recognition workshops}, pages 806--813, 2014.
+
+\bibitem{shi2020motionet}
+Mingyi Shi, Kfir Aberman, Andreas Aristidou, Taku Komura, Dani Lischinski,
+  Daniel Cohen-Or, and Baoquan Chen.
+\newblock Motionet: 3d human motion reconstruction from monocular video with
+  skeleton consistency.
+\newblock {\em ACM Transactions on Graphics (TOG)}, 40(1):1--15, 2020.
+
+\bibitem{siyao2022bailando}
+Li Siyao, Weijiang Yu, Tianpei Gu, Chunze Lin, Quan Wang, Chen Qian,
+  Chen~Change Loy, and Ziwei Liu.
+\newblock Bailando: 3d dance generation by actor-critic gpt with choreographic
+  memory.
+\newblock In {\em Proceedings of the IEEE/CVF Conference on Computer Vision and
+  Pattern Recognition}, pages 11050--11059, 2022.
+
+\bibitem{sohl2015deep}
+Jascha Sohl-Dickstein, Eric Weiss, Niru Maheswaranathan, and Surya Ganguli.
+\newblock Deep unsupervised learning using nonequilibrium thermodynamics.
+\newblock In {\em International Conference on Machine Learning}, pages
+  2256--2265. PMLR, 2015.
+
+\bibitem{sohn2015learning}
+Kihyuk Sohn, Honglak Lee, and Xinchen Yan.
+\newblock Learning structured output representation using deep conditional
+  generative models.
+\newblock {\em Advances in neural information processing systems}, 28, 2015.
+
+\bibitem{taheri2022goal}
+Omid Taheri, Vasileios Choutas, Michael~J Black, and Dimitrios Tzionas.
+\newblock Goal: Generating 4d whole-body motion for hand-object grasping.
+\newblock In {\em Proceedings of the IEEE/CVF Conference on Computer Vision and
+  Pattern Recognition}, pages 13263--13273, 2022.
+
+\bibitem{tang2022real}
+Xiangjun Tang, He Wang, Bo Hu, Xu Gong, Ruifan Yi, Qilong Kou, and Xiaogang
+  Jin.
+\newblock Real-time controllable motion transition for characters.
+\newblock {\em arXiv preprint arXiv:2205.02540}, 2022.
+
+\bibitem{tevet2022human}
+Guy Tevet, Sigal Raab, Brian Gordon, Yonatan Shafir, Daniel Cohen-Or, and
+  Amit~H Bermano.
+\newblock Human motion diffusion model.
+\newblock {\em arXiv preprint arXiv:2209.14916}, 2022.
+
+\bibitem{valle2021transflower}
+Guillermo Valle-P{\'e}rez, Gustav~Eje Henter, Jonas Beskow, Andre Holzapfel,
+  Pierre-Yves Oudeyer, and Simon Alexanderson.
+\newblock Transflower: probabilistic autoregressive dance generation with
+  multimodal attention.
+\newblock {\em ACM Transactions on Graphics (TOG)}, 40(6):1--14, 2021.
+
+\bibitem{won2022physics}
+Jungdam Won, Deepak Gopinath, and Jessica Hodgins.
+\newblock Physics-based character controllers using conditional vaes.
+\newblock {\em ACM Transactions on Graphics (TOG)}, 41(4):1--12, 2022.
+
+\bibitem{xie2022adan}
+Xingyu Xie, Pan Zhou, Huan Li, Zhouchen Lin, and Shuicheng Yan.
+\newblock Adan: Adaptive nesterov momentum algorithm for faster optimizing deep
+  models.
+\newblock {\em arXiv preprint arXiv:2208.06677}, 2022.
+
+\bibitem{yin2022dance}
+Wenjie Yin, Hang Yin, Kim Baraka, Danica Kragic, and M{\aa}rten Bj{\"o}rkman.
+\newblock Dance style transfer with cross-modal transformer.
+\newblock {\em arXiv preprint arXiv:2208.09406}, 2022.
+
+\bibitem{zhang2022motiondiffuse}
+Mingyuan Zhang, Zhongang Cai, Liang Pan, Fangzhou Hong, Xinying Guo, Lei Yang,
+  and Ziwei Liu.
+\newblock Motiondiffuse: Text-driven human motion generation with diffusion
+  model.
+\newblock {\em arXiv preprint arXiv:2208.15001}, 2022.
+
+\bibitem{zhou2019continuity}
+Yi Zhou, Connelly Barnes, Jingwan Lu, Jimei Yang, and Hao Li.
+\newblock On the continuity of rotation representations in neural networks.
+\newblock In {\em Proceedings of the IEEE/CVF Conference on Computer Vision and
+  Pattern Recognition}, pages 5745--5753, 2019.
+
+\end{thebibliography}

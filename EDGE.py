@@ -98,6 +98,16 @@ class EDGE:
         self.diffusion = diffusion.to(self.accelerator.device)
         optim = Adan(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
         self.optim = self.accelerator.prepare(optim)
+        
+        # Initialize FCS evaluator for physics validation
+        try:
+            from eval.eval_fcs import ForceConsistencyEvaluator
+            self.fcs_evaluator = ForceConsistencyEvaluator(fps=30)
+            self.use_fcs = True
+            print("FCS evaluator initialized for physics monitoring")
+        except ImportError:
+            self.use_fcs = False
+            print("FCS evaluator not available - skipping physics validation")
 
         if checkpoint_path != "":
             self.model.load_state_dict(
@@ -112,6 +122,69 @@ class EDGE:
 
     def train(self):
         self.diffusion.train()
+
+    def evaluate_fcs_on_batch(self, cond, num_samples=4):
+        """
+        Evaluate Force Consistency Score on generated samples.
+        
+        Args:
+            cond: Conditioning features (music) - (B, S, C)
+            num_samples: Number of samples to evaluate
+        
+        Returns:
+            dict with mean_fcs_score and individual scores
+        """
+        if not self.use_fcs:
+            return {'mean_fcs_score': 0.0, 'individual_scores': []}
+        
+        self.eval()
+        
+        # Generate samples
+        batch_size = min(num_samples, len(cond))
+        shape = (batch_size, self.horizon, self.repr_dim)
+        
+        with torch.no_grad():
+            # Sample from the diffusion model
+            from model.utils import ax_from_6v
+            
+            samples = self.diffusion.sample(shape, cond[:batch_size])
+            
+            # Convert to joint positions for FCS evaluation
+            b, s, c = samples.shape
+            
+            # Split off contact labels (first 4 channels)
+            sample_contact, samples = torch.split(samples, (4, c - 4), dim=2)
+            
+            # Extract position and rotation
+            sample_x = samples[:, :, :3]  # (b, s, 3)
+            sample_q = ax_from_6v(samples[:, :, 3:].reshape(b, s, 24, 6))  # (b, s, 24, 3)
+            
+            # Forward kinematics to get joint positions
+            joint_positions = self.diffusion.smpl.forward(sample_q, sample_x)  # (b, s, 24, 3)
+            
+            # Evaluate FCS for each sample
+            fcs_scores = []
+            for i in range(batch_size):
+                joints_np = joint_positions[i].cpu().numpy()  # (s, 24, 3)
+                
+                try:
+                    result = self.fcs_evaluator.evaluate_motion(joints_np)
+                    fcs_scores.append(result['fcs_score'])
+                except Exception as e:
+                    print(f"FCS evaluation warning for sample {i}: {e}")
+                    continue
+            
+            if len(fcs_scores) == 0:
+                return {'mean_fcs_score': 0.0, 'individual_scores': []}
+            
+            mean_fcs = float(torch.tensor(fcs_scores).mean())
+            
+        self.train()
+        return {
+            'mean_fcs_score': mean_fcs,
+            'individual_scores': fcs_scores,
+            'num_evaluated': len(fcs_scores)
+        }
 
     def prepare(self, objects):
         return self.accelerator.prepare(*objects)
@@ -229,11 +302,26 @@ class EDGE:
                     avg_vloss /= len(train_data_loader)
                     avg_fkloss /= len(train_data_loader)
                     avg_footloss /= len(train_data_loader)
+                    
+                    # Evaluate FCS on validation samples
+                    fcs_result = {'mean_fcs_score': 0.0}
+                    if self.use_fcs:
+                        try:
+                            # Use test data for FCS evaluation
+                            (_, val_cond, _, _) = next(iter(test_data_loader))
+                            val_cond = val_cond.to(self.accelerator.device)
+                            fcs_result = self.evaluate_fcs_on_batch(val_cond, num_samples=4)
+                            print(f"FCS Score: {fcs_result['mean_fcs_score']:.4f} "
+                                  f"({fcs_result['num_evaluated']} samples)")
+                        except Exception as e:
+                            print(f"FCS evaluation failed: {e}")
+                    
                     log_dict = {
                         "Train Loss": avg_loss,
                         "V Loss": avg_vloss,
                         "FK Loss": avg_fkloss,
                         "Foot Loss": avg_footloss,
+                        "FCS Score": fcs_result['mean_fcs_score'],
                     }
                     wandb.log(log_dict)
                     ckpt = {
