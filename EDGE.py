@@ -153,7 +153,7 @@ class EDGE:
         
         with torch.no_grad():
             # Sample from the diffusion model
-            from model.utils import ax_from_6v
+            from dataset.quaternion import ax_from_6v
             
             samples = self.diffusion.sample(shape, cond[:batch_size])
             
