@@ -62,7 +62,7 @@ class EDGE:
         checkpoint = None
         if checkpoint_path != "":
             checkpoint = torch.load(
-                checkpoint_path, map_location=self.accelerator.device
+                checkpoint_path, map_location=self.accelerator.device, weights_only=False
             )
             self.normalizer = checkpoint["normalizer"]
 
