@@ -1,6 +1,9 @@
 import multiprocessing
 import os
 import pickle
+import csv
+import json
+from datetime import datetime
 from functools import partial
 from pathlib import Path
 
@@ -104,10 +107,15 @@ class EDGE:
             from eval.eval_fcs import ForceConsistencyEvaluator
             self.fcs_evaluator = ForceConsistencyEvaluator(fps=30)
             self.use_fcs = True
-            print("FCS evaluator initialized for physics monitoring")
-        except ImportError:
+            print("="*60)
+            print("✓ FCS evaluator initialized for physics monitoring")
+            print("="*60)
+        except Exception as e:
             self.use_fcs = False
-            print("FCS evaluator not available - skipping physics validation")
+            print("="*60)
+            print(f"✗ FCS evaluator initialization failed: {type(e).__name__}: {e}")
+            print("✗ FCS physics validation will be skipped")
+            print("="*60)
 
         if checkpoint_path != "":
             self.model.load_state_dict(
@@ -260,8 +268,40 @@ class EDGE:
             save_dir = Path(save_dir)
             wdir = save_dir / "weights"
             wdir.mkdir(parents=True, exist_ok=True)
+            
+            # Initialize metrics logging files
+            metrics_file = save_dir / "training_metrics.csv"
+            metrics_json_file = save_dir / "training_metrics.json"
+            
+            # Create CSV file with headers
+            with open(metrics_file, 'w', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow(['Epoch', 'Timestamp', 'Total_Loss', 'Train_Loss', 
+                                'V_Loss', 'FK_Loss', 'Foot_Loss', 'FCS_Score', 'Type'])
+            
+            # Initialize JSON metrics list
+            all_metrics = []
+            
+            print(f"  Metrics will be saved to:")
+            print(f"    - {metrics_file}")
+            print(f"    - {metrics_json_file}")
 
         self.accelerator.wait_for_everyone()
+        
+        # Print training configuration
+        if self.accelerator.is_main_process:
+            print(f"\n{'='*70}")
+            print(f"STARTING TRAINING")
+            print(f"{'='*70}")
+            print(f"  Experiment:      {opt.exp_name}")
+            print(f"  Total Epochs:    {opt.epochs}")
+            print(f"  Batch Size:      {opt.batch_size}")
+            print(f"  Save Interval:   {opt.save_interval} epochs")
+            print(f"  Feature Type:    {opt.feature_type}")
+            print(f"  FCS Enabled:     {self.use_fcs}")
+            print(f"  Progress prints: Every 50 epochs")
+            print(f"{'='*70}\n")
+        
         for epoch in range(1, opt.epochs + 1):
             avg_loss = 0
             avg_vloss = 0
@@ -290,6 +330,45 @@ class EDGE:
                         self.diffusion.ema.update_model_average(
                             self.diffusion.master_model, self.diffusion.model
                         )
+            
+            # Print progress every 50 epochs
+            if self.accelerator.is_main_process and (epoch % 50 == 0):
+                temp_avg_loss = avg_loss / len(train_data_loader)
+                temp_avg_vloss = avg_vloss / len(train_data_loader)
+                temp_avg_fkloss = avg_fkloss / len(train_data_loader)
+                temp_avg_footloss = avg_footloss / len(train_data_loader)
+                total = temp_avg_loss + temp_avg_vloss + temp_avg_fkloss + temp_avg_footloss
+                
+                print(f"\n{'='*70}")
+                print(f"EPOCH {epoch}/{opt.epochs} - Training Progress")
+                print(f"{'='*70}")
+                print(f"  Total Loss:      {total:.6f}")
+                print(f"  ├─ Train Loss:   {temp_avg_loss:.6f}  ({temp_avg_loss/total*100:5.1f}%)")
+                print(f"  ├─ V Loss:       {temp_avg_vloss:.6f}  ({temp_avg_vloss/total*100:5.1f}%)")
+                print(f"  ├─ FK Loss:      {temp_avg_fkloss:.6f}  ({temp_avg_fkloss/total*100:5.1f}%)")
+                print(f"  └─ Foot Loss:    {temp_avg_footloss:.6f}  ({temp_avg_footloss/total*100:5.1f}%)")
+                print(f"{'='*70}\n")
+                
+                # Save progress metrics to files
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                with open(metrics_file, 'a', newline='') as f:
+                    writer = csv.writer(f)
+                    writer.writerow([epoch, timestamp, f"{total:.6f}", f"{temp_avg_loss:.6f}",
+                                   f"{temp_avg_vloss:.6f}", f"{temp_avg_fkloss:.6f}", 
+                                   f"{temp_avg_footloss:.6f}", "N/A", "progress"])
+                
+                all_metrics.append({
+                    'epoch': epoch,
+                    'timestamp': timestamp,
+                    'total_loss': float(total),
+                    'train_loss': float(temp_avg_loss),
+                    'v_loss': float(temp_avg_vloss),
+                    'fk_loss': float(temp_avg_fkloss),
+                    'foot_loss': float(temp_avg_footloss),
+                    'fcs_score': None,
+                    'type': 'progress'
+                })
+            
             # Save model
             if (epoch % opt.save_interval) == 0:
                 # everyone waits here for the val loop to finish ( don't start next train epoch early)
@@ -310,11 +389,61 @@ class EDGE:
                             # Use test data for FCS evaluation
                             (_, val_cond, _, _) = next(iter(test_data_loader))
                             val_cond = val_cond.to(self.accelerator.device)
+                            print("[FCS] Evaluating physics quality...")
                             fcs_result = self.evaluate_fcs_on_batch(val_cond, num_samples=4)
-                            print(f"FCS Score: {fcs_result['mean_fcs_score']:.4f} "
-                                  f"({fcs_result['num_evaluated']} samples)")
+                            print(f"[FCS] Score: {fcs_result['mean_fcs_score']:.4f} "
+                                  f"({fcs_result['num_evaluated']} samples evaluated)")
                         except Exception as e:
-                            print(f"FCS evaluation failed: {e}")
+                            import traceback
+                            print(f"[FCS] Evaluation failed: {type(e).__name__}: {e}")
+                            print(traceback.format_exc())
+                    else:
+                        print("[FCS] Skipped - evaluator not initialized")
+                    
+                    # Print detailed checkpoint summary
+                    total = avg_loss + avg_vloss + avg_fkloss + avg_footloss
+                    print(f"\n{'#'*70}")
+                    print(f"# CHECKPOINT - Epoch {epoch}/{opt.epochs}")
+                    print(f"{'#'*70}")
+                    print(f"  Total Loss:      {total:.6f}")
+                    print(f"  ├─ Train Loss:   {avg_loss:.6f}")
+                    print(f"  ├─ V Loss:       {avg_vloss:.6f}")
+                    print(f"  ├─ FK Loss:      {avg_fkloss:.6f}")
+                    print(f"  ├─ Foot Loss:    {avg_footloss:.6f}")
+                    print(f"  └─ FCS Score:    {fcs_result['mean_fcs_score']:.6f}")
+                    print(f"  Model saved to:  weights/train-{epoch}.pt")
+                    print(f"{'#'*70}\n")
+                    
+                    # Save checkpoint metrics to files
+                    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    with open(metrics_file, 'a', newline='') as f:
+                        writer = csv.writer(f)
+                        writer.writerow([epoch, timestamp, f"{total:.6f}", f"{avg_loss:.6f}",
+                                       f"{avg_vloss:.6f}", f"{avg_fkloss:.6f}", 
+                                       f"{avg_footloss:.6f}", f"{fcs_result['mean_fcs_score']:.6f}", 
+                                       "checkpoint"])
+                    
+                    all_metrics.append({
+                        'epoch': epoch,
+                        'timestamp': timestamp,
+                        'total_loss': float(total),
+                        'train_loss': float(avg_loss),
+                        'v_loss': float(avg_vloss),
+                        'fk_loss': float(avg_fkloss),
+                        'foot_loss': float(avg_footloss),
+                        'fcs_score': float(fcs_result['mean_fcs_score']),
+                        'type': 'checkpoint'
+                    })
+                    
+                    # Save JSON file (updated each checkpoint)
+                    with open(metrics_json_file, 'w') as f:
+                        json.dump({
+                            'experiment': opt.exp_name,
+                            'total_epochs': opt.epochs,
+                            'batch_size': opt.batch_size,
+                            'feature_type': opt.feature_type,
+                            'metrics': all_metrics
+                        }, f, indent=2)
                     
                     log_dict = {
                         "Train Loss": avg_loss,
@@ -350,7 +479,33 @@ class EDGE:
                         sound=True,
                     )
                     print(f"[MODEL SAVED at Epoch {epoch}]")
+        
+        # Training completion summary
         if self.accelerator.is_main_process:
+            # Final save of metrics
+            with open(metrics_json_file, 'w') as f:
+                json.dump({
+                    'experiment': opt.exp_name,
+                    'total_epochs': opt.epochs,
+                    'batch_size': opt.batch_size,
+                    'feature_type': opt.feature_type,
+                    'completed': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    'metrics': all_metrics
+                }, f, indent=2)
+            
+            print(f"\n{'='*70}")
+            print(f"TRAINING COMPLETED")
+            print(f"{'='*70}")
+            print(f"  Total Epochs:    {opt.epochs}")
+            print(f"  Experiment:      {opt.exp_name}")
+            print(f"  Final Model:     weights/train-{epoch}.pt")
+            print(f"  Metrics saved:")
+            print(f"    - {metrics_file}")
+            print(f"    - {metrics_json_file}")
+            print(f"  Total records:   {len(all_metrics)}")
+            print(f"{'='*70}\n")
+            print(f"  WandB Project:   {opt.wandb_pj_name}")
+            print(f"{'='*70}\n")
             wandb.run.finish()
 
     def render_sample(
