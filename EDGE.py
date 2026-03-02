@@ -157,8 +157,11 @@ class EDGE:
             print(f"[FCS] Generating {batch_size} samples for evaluation...")
             
             with torch.no_grad():
-                # Sample from the diffusion model
-                samples = self.diffusion.sample(shape, cond[:batch_size])
+                # Sample from the diffusion model using DDIM sampling
+                samples = self.diffusion.ddim_sample(shape, cond[:batch_size])
+                
+                # Unnormalize samples (FCS needs real-world units)
+                samples = self.normalizer.unnormalize(samples)
                 
                 # Convert to joint positions for FCS evaluation
                 b, s, c = samples.shape

@@ -191,8 +191,13 @@ class ForceConsistencyEvaluator:
             axis=-1
         )  # (S-2, 4)
         
+        # Check foot height (feet near ground)  
+        foot_height = feet[1:-1, :, self.up_axis]  # (S-2, 4) - height of feet in analysis window
+        ground_threshold = 0.10  # 10cm above ground
+        near_ground = foot_height < ground_threshold  # (S-2, 4)
+        
         # Contact when velocity is low AND foot is near ground
-        contacts = foot_velocity < self.min_contact_velocity  # (S-2, 4)
+        contacts = (foot_velocity < self.min_contact_velocity) & near_ground  # (S-2, 4)
         
         # Get foot positions in analysis window
         foot_positions = feet[1:-1, :, :]  # (S-2, 4, 3) - middle frames
