@@ -17,6 +17,7 @@ from tqdm import tqdm
 
 from dataset.dance_dataset import AISTPPDataset
 from dataset.preprocess import increment_path
+from dataset.quaternion import ax_from_6v
 from model.adan import Adan
 from model.diffusion import GaussianDiffusion
 from model.model import DanceDecoder
@@ -143,51 +144,68 @@ class EDGE:
             dict with mean_fcs_score and individual scores
         """
         if not self.use_fcs:
-            return {'mean_fcs_score': 0.0, 'individual_scores': []}
+            print("[FCS] Skipped - evaluator not initialized")
+            return {'mean_fcs_score': 0.0, 'individual_scores': [], 'num_evaluated': 0}
         
         self.eval()
         
-        # Generate samples
-        batch_size = min(num_samples, len(cond))
-        shape = (batch_size, self.horizon, self.repr_dim)
-        
-        with torch.no_grad():
-            # Sample from the diffusion model
-            from dataset.quaternion import ax_from_6v
+        try:
+            # Generate samples
+            batch_size = min(num_samples, len(cond))
+            shape = (batch_size, self.horizon, self.repr_dim)
             
-            samples = self.diffusion.sample(shape, cond[:batch_size])
+            print(f"[FCS] Generating {batch_size} samples for evaluation...")
             
-            # Convert to joint positions for FCS evaluation
-            b, s, c = samples.shape
-            
-            # Split off contact labels (first 4 channels)
-            sample_contact, samples = torch.split(samples, (4, c - 4), dim=2)
-            
-            # Extract position and rotation
-            sample_x = samples[:, :, :3]  # (b, s, 3)
-            sample_q = ax_from_6v(samples[:, :, 3:].reshape(b, s, 24, 6))  # (b, s, 24, 3)
-            
-            # Forward kinematics to get joint positions
-            joint_positions = self.diffusion.smpl.forward(sample_q, sample_x)  # (b, s, 24, 3)
-            
-            # Evaluate FCS for each sample
-            fcs_scores = []
-            for i in range(batch_size):
-                joints_np = joint_positions[i].cpu().numpy()  # (s, 24, 3)
+            with torch.no_grad():
+                # Sample from the diffusion model
+                samples = self.diffusion.sample(shape, cond[:batch_size])
                 
-                try:
-                    result = self.fcs_evaluator.evaluate_motion(joints_np)
-                    fcs_scores.append(result['fcs_score'])
-                except Exception as e:
-                    print(f"FCS evaluation warning for sample {i}: {e}")
-                    continue
-            
-            if len(fcs_scores) == 0:
-                return {'mean_fcs_score': 0.0, 'individual_scores': []}
-            
-            mean_fcs = float(torch.tensor(fcs_scores).mean())
-            
-        self.train()
+                # Convert to joint positions for FCS evaluation
+                b, s, c = samples.shape
+                print(f"[FCS] Samples shape: {samples.shape}")
+                
+                # Split off contact labels (first 4 channels)
+                sample_contact, samples = torch.split(samples, (4, c - 4), dim=2)
+                
+                # Extract position and rotation
+                sample_x = samples[:, :, :3]  # (b, s, 3)
+                sample_q = ax_from_6v(samples[:, :, 3:].reshape(b, s, 24, 6))  # (b, s, 24, 3)
+                
+                print(f"[FCS] Running forward kinematics...")
+                # Forward kinematics to get joint positions
+                joint_positions = self.diffusion.smpl.forward(sample_q, sample_x)  # (b, s, 24, 3)
+                print(f"[FCS] Joint positions shape: {joint_positions.shape}")
+                
+                # Evaluate FCS for each sample
+                fcs_scores = []
+                for i in range(batch_size):
+                    joints_np = joint_positions[i].cpu().numpy()  # (s, 24, 3)
+                    
+                    try:
+                        result = self.fcs_evaluator.evaluate_motion(joints_np)
+                        fcs_scores.append(result['fcs_score'])
+                        print(f"[FCS] Sample {i+1}/{batch_size}: {result['fcs_score']:.4f}")
+                    except Exception as e:
+                        print(f"[FCS] ERROR evaluating sample {i+1}: {type(e).__name__}: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        continue
+                
+                if len(fcs_scores) == 0:
+                    print("[FCS] WARNING: All samples failed evaluation!")
+                    return {'mean_fcs_score': 0.0, 'individual_scores': [], 'num_evaluated': 0}
+                
+                mean_fcs = float(sum(fcs_scores) / len(fcs_scores))
+                print(f"[FCS] Mean score: {mean_fcs:.4f} (from {len(fcs_scores)}/{batch_size} samples)")
+                
+        except Exception as e:
+            print(f"[FCS] CRITICAL ERROR in evaluation pipeline: {type(e).__name__}: {e}")
+            import traceback
+            traceback.print_exc()
+            return {'mean_fcs_score': 0.0, 'individual_scores': [], 'num_evaluated': 0}
+        finally:
+            self.train()
+        
         return {
             'mean_fcs_score': mean_fcs,
             'individual_scores': fcs_scores,
