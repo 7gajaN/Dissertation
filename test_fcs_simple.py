@@ -44,18 +44,26 @@ print(f"Required force magnitude: {np.linalg.norm(result['required_force'], axis
 print(f"Max available force (vertical): {result['max_available_force'][:, 2].mean():.2f} N")
 print()
 
-# Test 3: Smoothly varying motion
+# Test 3: Smoothly varying motion (walking-like)
 print("=" * 60)
-print("TEST 3: Smooth sinusoidal motion")
+print("TEST 3: Smooth walking-like motion")
 t = np.linspace(0, 5, 150)
 joint_positions = np.zeros((150, 24, 3))
-# Add sinusoidal motion
+# Body sways gently
 for j in range(24):
-    joint_positions[:, j, 0] = 0.3 * np.sin(2 * np.pi * t + j * 0.1)
-    joint_positions[:, j, 1] = 0.2 * np.cos(2 * np.pi * t + j * 0.15)
-    joint_positions[:, j, 2] = 1.0 + 0.1 * np.sin(4 * np.pi * t)
-# Keep feet mostly on ground with slight lifting
-joint_positions[:, [7, 8, 10, 11], 2] = 0.03 + 0.05 * np.abs(np.sin(2 * np.pi * t))[:, None]
+    joint_positions[:, j, 0] = 0.05 * np.sin(2 * np.pi * t)  # gentle sway
+    joint_positions[:, j, 1] = 0.03 * np.cos(2 * np.pi * t)
+    joint_positions[:, j, 2] = 1.0 + 0.05 * np.sin(4 * np.pi * t)
+# Feet alternate: left foot (7,10) and right foot (8,11) 
+# Left foot stationary first half, then lifts
+left_foot_height = np.where(t < 2.5, 0.02, 0.15)
+# Right foot lifts first half, then stationary
+right_foot_height = np.where(t < 2.5, 0.15, 0.02)
+joint_positions[:, [7, 10], 2] = left_foot_height[:, None]  # left ankle, left toe
+joint_positions[:, [8, 11], 2] = right_foot_height[:, None]  # right ankle, right toe
+# Feet stay put horizontally when on ground
+joint_positions[:, [7, 10], :2] = 0.0  # left foot stays at origin
+joint_positions[:, [8, 11], :2] = 0.0  # right foot stays at origin
 result = evaluator.evaluate_motion(joint_positions)
 print(f"FCS Score: {result['fcs_score']:.6f}")
 print(f"Contact ratio: {result['contact_ratio']:.3f}")
