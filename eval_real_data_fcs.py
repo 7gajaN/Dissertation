@@ -31,7 +31,7 @@ def evaluate_dataset_fcs(data_path, split='test', max_samples=100):
     # Load dataset
     dataset = AISTPPDataset(
         data_path=data_path,
-        backup_path="",
+        backup_path="data/dataset_backups",
         train=split == 'train',
         feature_type='jukebox'
     )
@@ -107,8 +107,8 @@ def evaluate_dataset_fcs(data_path, split='test', max_samples=100):
 
 def main():
     parser = argparse.ArgumentParser(description='Evaluate FCS on AIST++ dataset')
-    parser.add_argument('--data_path', type=str, default='data/aistpp',
-                        help='Path to AIST++ dataset')
+    parser.add_argument('--data_path', type=str, default='data',
+                        help='Path to AIST++ dataset (parent folder containing train/test)')
     parser.add_argument('--split', type=str, default='test', choices=['train', 'test'],
                         help='Dataset split to evaluate')
     parser.add_argument('--max_samples', type=int, default=100,

@@ -41,11 +41,12 @@ def generate_and_evaluate(checkpoint_path, data_path, cached_dataset_path, num_s
         print(f"Loading cached dataset from {cached_dataset_path}...")
         dataset = pickle.load(open(cached_dataset_path, 'rb'))
     else:
-        print(f"Loading dataset from {data_path}...")
+        print(f"No cached dataset found. Loading from {data_path}...")
         dataset = AISTPPDataset(
             data_path=data_path,
-            backup_path="data",
+            backup_path="data/dataset_backups",
             train=False,  # Use test set
+            feature_type='jukebox'
         )
     
     print(f"Dataset loaded: {len(dataset)} sequences")
@@ -145,9 +146,9 @@ def main():
     parser = argparse.ArgumentParser(description='Generate and evaluate samples from trained EDGE model')
     parser.add_argument('--checkpoint', type=str, default='weights/train-2000.pt',
                         help='Path to model checkpoint')
-    parser.add_argument('--data_path', type=str, default='data/aistpp',
-                        help='Path to AIST++ dataset')
-    parser.add_argument('--cached_dataset', type=str, default='data/test_tensor_dataset.pkl',
+    parser.add_argument('--data_path', type=str, default='data',
+                        help='Path to AIST++ dataset (parent folder containing train/test)')
+    parser.add_argument('--cached_dataset', type=str, default='data/dataset_backups/test_tensor_dataset.pkl',
                         help='Path to cached test dataset pickle file')
     parser.add_argument('--num_samples', type=int, default=50,
                         help='Number of samples to generate')
