@@ -13,13 +13,14 @@ from dataset.dance_dataset import AISTPPDataset
 from eval.eval_fcs import ForceConsistencyEvaluator
 
 
-def generate_and_evaluate(checkpoint_path, data_path, num_samples=50, output_dir='generated_samples'):
+def generate_and_evaluate(checkpoint_path, data_path, cached_dataset_path, num_samples=50, output_dir='generated_samples'):
     """
     Generate dance samples from trained model and evaluate FCS.
     
     Args:
         checkpoint_path: Path to model checkpoint
         data_path: Path to AIST++ dataset (for music conditioning)
+        cached_dataset_path: Path to cached dataset pickle
         num_samples: Number of samples to generate
         output_dir: Directory to save results
     
@@ -31,13 +32,22 @@ def generate_and_evaluate(checkpoint_path, data_path, num_samples=50, output_dir
     print("=" * 70)
     
     # Load dataset (for music features)
-    print(f"\nLoading dataset from {data_path}...")
-    dataset = AISTPPDataset(
-        data_path=data_path,
-        backup_path="",
-        train=False,  # Use test set
-        feature_type='jukebox'
-    )
+    print(f"\nLoading dataset...")
+    
+    # Try to load cached dataset first
+    import pickle
+    
+    if Path(cached_dataset_path).exists():
+        print(f"Loading cached dataset from {cached_dataset_path}...")
+        dataset = pickle.load(open(cached_dataset_path, 'rb'))
+    else:
+        print(f"Loading dataset from {data_path}...")
+        dataset = AISTPPDataset(
+            data_path=data_path,
+            backup_path="data",
+            train=False,  # Use test set
+        )
+    
     print(f"Dataset loaded: {len(dataset)} sequences")
     
     # Load trained model
@@ -137,6 +147,8 @@ def main():
                         help='Path to model checkpoint')
     parser.add_argument('--data_path', type=str, default='data/aistpp',
                         help='Path to AIST++ dataset')
+    parser.add_argument('--cached_dataset', type=str, default='data/test_tensor_dataset.pkl',
+                        help='Path to cached test dataset pickle file')
     parser.add_argument('--num_samples', type=int, default=50,
                         help='Number of samples to generate')
     parser.add_argument('--output', type=str, default='fcs_generated_results.txt',
@@ -155,7 +167,7 @@ def main():
         return
     
     # Generate and evaluate
-    results = generate_and_evaluate(args.checkpoint, args.data_path, args.num_samples)
+    results = generate_and_evaluate(args.checkpoint, args.data_path, args.cached_dataset, args.num_samples)
     
     # Print results
     print("\n" + "=" * 70)
