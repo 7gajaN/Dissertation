@@ -51,8 +51,8 @@ def evaluate_dataset_fcs(data_path, split='test', max_samples=100):
     for idx in tqdm(range(num_samples)):
         try:
             # Get a sample from dataset
-            sample = dataset[idx]
-            motion_data = sample['motion']  # (seq_len, features)
+            # Dataset returns: (pose, feature, filename, wav)
+            motion_data, _, _, _ = dataset[idx]
             
             # Unnormalize the data
             motion_data = motion_data.unsqueeze(0)  # (1, seq_len, features)
@@ -90,6 +90,10 @@ def evaluate_dataset_fcs(data_path, split='test', max_samples=100):
     # Compute statistics
     fcs_scores = np.array(fcs_scores)
     
+    if len(fcs_scores) == 0:
+        print("\nERROR: All samples failed to evaluate! Check the errors above.")
+        return None
+    
     results = {
         'mean': np.mean(fcs_scores),
         'std': np.std(fcs_scores),
@@ -124,6 +128,10 @@ def main():
     
     # Evaluate
     results = evaluate_dataset_fcs(args.data_path, args.split, args.max_samples)
+    
+    if results is None:
+        print("\nFailed to evaluate dataset. Exiting.")
+        return
     
     # Print results
     print("\n" + "=" * 70)

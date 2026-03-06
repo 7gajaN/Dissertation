@@ -74,8 +74,9 @@ def generate_and_evaluate(checkpoint_path, data_path, cached_dataset_path, num_s
     for idx in tqdm(range(min(num_samples, len(dataset)))):
         try:
             # Get music conditioning from dataset
-            sample = dataset[idx]
-            music_features = sample['feature'].unsqueeze(0)  # (1, seq_len, feature_dim)
+            # Dataset returns: (pose, feature, filename, wav)
+            _, music_features, _, _ = dataset[idx]
+            music_features = music_features.unsqueeze(0)  # (1, seq_len, feature_dim)
             
             # Move to device
             device = next(model.parameters()).device
@@ -123,6 +124,10 @@ def generate_and_evaluate(checkpoint_path, data_path, cached_dataset_path, num_s
     contact_ratios = np.array(contact_ratios)
     avg_contacts_list = np.array(avg_contacts_list)
     
+    if len(fcs_scores) == 0:
+        print("\nERROR: All samples failed to generate! Check the errors above.")
+        return None
+    
     results = {
         'fcs_mean': np.mean(fcs_scores),
         'fcs_std': np.std(fcs_scores),
@@ -169,6 +174,10 @@ def main():
     
     # Generate and evaluate
     results = generate_and_evaluate(args.checkpoint, args.data_path, args.cached_dataset, args.num_samples)
+    
+    if results is None:
+        print("\nFailed to generate samples. Exiting.")
+        return
     
     # Print results
     print("\n" + "=" * 70)
