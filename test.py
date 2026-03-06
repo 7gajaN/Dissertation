@@ -114,6 +114,11 @@ def test(opt):
     print("Generating dances")
     for i in range(len(all_cond)):
         data_tuple = None, all_cond[i], all_filenames[i]
+        print(f"Processing sample {i+1}/{len(all_cond)}")
+        print(f"  Cond shape: {all_cond[i].shape}")
+        print(f"  Files: {len(all_filenames[i])} files")
+        print(f"  First file: {all_filenames[i][0] if all_filenames[i] else 'None'}")
+        print(f"  fk_out: {fk_out}")
         model.render_sample(
             data_tuple, "test", opt.render_dir, render_count=-1, fk_out=fk_out, render=not opt.no_render
         )
