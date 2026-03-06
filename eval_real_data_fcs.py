@@ -26,15 +26,37 @@ def evaluate_dataset_fcs(data_path, split='test', max_samples=100):
     Returns:
         Dictionary with FCS statistics
     """
-    print(f"Loading AIST++ {split} dataset from {data_path}...")
+    print(f"Loading AIST++ {split} dataset...")
     
-    # Load dataset
-    dataset = AISTPPDataset(
-        data_path=data_path,
-        backup_path="data/dataset_backups",
-        train=split == 'train',
-        feature_type='jukebox'
-    )
+    # Try to load cached dataset first
+    import pickle
+    cached_path = f'data/dataset_backups/{split}_tensor_dataset.pkl'
+    
+    if Path(cached_path).exists():
+        print(f"Loading cached dataset from {cached_path}...")
+        dataset = pickle.load(open(cached_path, 'rb'))
+    else:
+        print(f"Loading dataset from {data_path}...")
+        # Load train dataset first to get normalizer
+        if split == 'test':
+            train_cache = 'data/dataset_backups/train_tensor_dataset.pkl'
+            if Path(train_cache).exists():
+                print("Loading train dataset for normalizer...")
+                train_dataset = pickle.load(open(train_cache, 'rb'))
+                normalizer = train_dataset.normalizer
+            else:
+                print("ERROR: Need train dataset to get normalizer!")
+                return None
+        else:
+            normalizer = None
+        
+        dataset = AISTPPDataset(
+            data_path=data_path,
+            backup_path="data/dataset_backups",
+            train=split == 'train',
+            normalizer=normalizer,
+            feature_type='jukebox'
+        )
     
     print(f"Dataset loaded: {len(dataset)} sequences")
     
