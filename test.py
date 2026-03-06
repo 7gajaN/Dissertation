@@ -41,6 +41,7 @@ def test(opt):
     feature_func = juke_extract if opt.feature_type == "jukebox" else baseline_extract
     sample_length = opt.out_length
     sample_size = int(sample_length / 2.5) - 1
+    print(f"Sample settings: length={sample_length}s, size={sample_size} slices")
 
     temp_dir_list = []
     all_cond = []
@@ -49,11 +50,16 @@ def test(opt):
         print("Using precomputed features")
         # all subdirectories
         dir_list = glob.glob(os.path.join(opt.feature_cache_dir, "*/"))
+        print(f"Found {len(dir_list)} directories in {opt.feature_cache_dir}")
         for dir in dir_list:
             file_list = sorted(glob.glob(f"{dir}/*.wav"), key=stringintkey)
             juke_file_list = sorted(glob.glob(f"{dir}/*.npy"), key=stringintkey)
+            print(f"Directory {dir}: {len(file_list)} wav files, {len(juke_file_list)} npy files")
             assert len(file_list) == len(juke_file_list)
             # random chunk after sanity check
+            if len(file_list) < sample_size:
+                print(f"  Skipping - need at least {sample_size} files, only found {len(file_list)}")
+                continue
             rand_idx = random.randint(0, len(file_list) - sample_size)
             file_list = file_list[rand_idx : rand_idx + sample_size]
             juke_file_list = juke_file_list[rand_idx : rand_idx + sample_size]
@@ -105,6 +111,11 @@ def test(opt):
 
     model = EDGE(opt.feature_type, opt.checkpoint)
     model.eval()
+
+    print(f"Total samples loaded: {len(all_cond)}")
+    if len(all_cond) == 0:
+        print("ERROR: No samples loaded! Check your feature_cache_dir path and contents.")
+        return
 
     # directory for optionally saving the dances for eval
     fk_out = None
