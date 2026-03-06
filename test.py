@@ -84,6 +84,9 @@ def test(opt):
             slice_audio(wav_file, 2.5, 5.0, dirname)
             file_list = sorted(glob.glob(f"{dirname}/*.wav"), key=stringintkey)
             # randomly sample a chunk of length at most sample_size
+            if len(file_list) < sample_size:
+                print(f"  Skipping - audio too short (need {sample_size} slices, got {len(file_list)})")
+                continue
             rand_idx = random.randint(0, len(file_list) - sample_size)
             cond_list = []
             # generate juke representations
