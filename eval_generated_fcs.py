@@ -79,7 +79,7 @@ def generate_and_evaluate(checkpoint_path, data_path, cached_dataset_path, num_s
             music_features = music_features.unsqueeze(0)  # (1, seq_len, feature_dim)
             
             # Move to device
-            device = next(model.parameters()).device
+            device = model.accelerator.device
             music_features = music_features.to(device)
             
             # Generate dance motion
