@@ -42,6 +42,7 @@ class EDGE:
         learning_rate=4e-4,
         weight_decay=0.02,
         fcs_loss_weight=0.0,
+        fcs_predictor_path="",
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
         self.accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
@@ -51,6 +52,7 @@ class EDGE:
         
         # Store FCS loss weight
         self.fcs_loss_weight = fcs_loss_weight
+        self.fcs_predictor = None
 
         pos_dim = 3
         rot_dim = 24 * 6  # 24 joints, 6dof
@@ -125,7 +127,38 @@ class EDGE:
             print(f"✗ FCS evaluator initialization failed: {type(e).__name__}: {e}")
             print("✗ FCS/PFC physics validation will be skipped")
             print("="*60)
-            print("="*60)
+        
+        # Load FCS predictor network if provided
+        if fcs_predictor_path != "":
+            try:
+                from model.fcs_predictor import FCSPredictor
+                checkpoint_fcs = torch.load(fcs_predictor_path, map_location=self.accelerator.device)
+                predictor_args = checkpoint_fcs.get('args', None)
+                
+                # Create predictor with same architecture as training
+                if predictor_args:
+                    self.fcs_predictor = FCSPredictor(
+                        hidden_dim=predictor_args.hidden_dim,
+                        num_layers=predictor_args.num_layers,
+                        dropout=predictor_args.dropout
+                    ).to(self.accelerator.device)
+                else:
+                    # Default architecture
+                    self.fcs_predictor = FCSPredictor().to(self.accelerator.device)
+                
+                self.fcs_predictor.load_state_dict(checkpoint_fcs['model_state_dict'])
+                self.fcs_predictor.eval()  # Always in eval mode
+                
+                print("="*60)
+                print(f"✓ FCS predictor loaded from {fcs_predictor_path}")
+                print(f"✓ Differentiable physics loss enabled")
+                print("="*60)
+            except Exception as e:
+                self.fcs_predictor = None
+                print("="*60)
+                print(f"✗ Failed to load FCS predictor: {e}")
+                print(f"✗ Falling back to monitoring-only mode")
+                print("="*60)
 
         if checkpoint_path != "":
             self.model.load_state_dict(
@@ -310,6 +343,44 @@ class EDGE:
         }
         
         return total_penalty, stats
+    
+    def compute_fcs_loss_with_predictor(self, x, cond):
+        """
+        Compute differentiable FCS loss using the predictor network.
+        This works on the CURRENT DENOISING STEP outputs, not final samples.
+        
+        Args:
+            x: (B, S, repr_dim) current motion representation
+            cond: (B, S, C) conditioning features
+            
+        Returns:
+            fcs_loss: Scalar differentiable tensor
+            mean_fcs: Float for logging
+        """
+        if self.fcs_predictor is None:
+            return torch.tensor(0.0, device=x.device), 0.0
+        
+        # Parse motion (already unnormalized in training)
+        b, s, c = x.shape
+        
+        # Split: contacts(4), root(3), rotations(24*6)
+        contact, motion = torch.split(x, (4, c - 4), dim=2)
+        root_pos = motion[:, :, :3]
+        rotations_6d = motion[:, :, 3:].reshape(b, s, 24, 6)
+        rotations = ax_from_6v(rotations_6d)  # (b, s, 24, 3)
+        
+        # Forward kinematics to get joint positions
+        joint_positions = self.diffusion.smpl.forward(rotations, root_pos)  # (b, s, 24, 3)
+        
+        # Predict FCS using trained network
+        with torch.set_grad_enabled(True):
+            fcs_pred = self.fcs_predictor(joint_positions)  # (b,)
+        
+        # Loss is mean predicted FCS (want to minimize it)
+        fcs_loss = fcs_pred.mean()
+        mean_fcs = float(fcs_loss.detach().cpu().item())
+        
+        return fcs_loss, mean_fcs
 
     def prepare(self, objects):
         return self.accelerator.prepare(*objects)
@@ -394,7 +465,7 @@ class EDGE:
             with open(metrics_file, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['Epoch', 'Timestamp', 'Total_Loss', 'Train_Loss', 
-                                'V_Loss', 'FK_Loss', 'Foot_Loss', 'FCS_Score', 'PFC_Score', 'Type'])
+                                'V_Loss', 'FK_Loss', 'Foot_Loss', 'FCS_Train_Loss', 'FCS_Score', 'PFC_Score', 'Type'])
             
             # Initialize JSON metrics list
             all_metrics = []
@@ -429,6 +500,9 @@ class EDGE:
             avg_vloss = 0
             avg_fkloss = 0
             avg_footloss = 0
+            avg_fcs_loss = 0
+            fcs_steps = 0
+            
             # train
             self.train()
             for step, (x, cond, filename, wavnames) in enumerate(
@@ -437,9 +511,21 @@ class EDGE:
                 total_loss, (loss, v_loss, fk_loss, foot_loss) = self.diffusion(
                     x, cond, t_override=None
                 )
+                
+                # Add FCS loss if predictor is available
+                # Apply to every Nth batch to balance compute cost
+                if self.fcs_predictor is not None and step % opt.fcs_regularize_every == 0:
+                    # Unnormalize x to get real-world units for FCS
+                    x_unnorm = self.normalizer.unnormalize(x)
+                    fcs_loss, mean_fcs = self.compute_fcs_loss_with_predictor(x_unnorm, cond)
+                    total_loss = total_loss + self.fcs_loss_weight * fcs_loss
+                    
+                    if self.accelerator.is_main_process:
+                        avg_fcs_loss += mean_fcs
+                        fcs_steps += 1
+                
                 self.optim.zero_grad()
                 self.accelerator.backward(total_loss)
-
                 self.optim.step()
 
                 # ema update and train loss update only on main
@@ -512,6 +598,14 @@ class EDGE:
                 print(f"EPOCH {epoch}/{opt.epochs} - Training Progress")
                 print(f"{'='*70}")
                 print(f"  Total Loss:      {total:.6f}")
+                print(f"  Reconstruction:  {temp_avg_loss:.6f}")
+                print(f"  Velocity Loss:   {temp_avg_vloss:.6f}")
+                print(f"  FK Loss:         {temp_avg_fkloss:.6f}")
+                print(f"  Foot Loss:       {temp_avg_footloss:.6f}")
+                if fcs_steps > 0:
+                    temp_avg_fcs = avg_fcs_loss / fcs_steps
+                    print(f"  FCS Loss (pred): {temp_avg_fcs:.6f}")
+                print(f"{'='*70}\n")
                 print(f"  ├─ Train Loss:   {temp_avg_loss:.6f}  ({temp_avg_loss/total*100:5.1f}%)")
                 print(f"  ├─ V Loss:       {temp_avg_vloss:.6f}  ({temp_avg_vloss/total*100:5.1f}%)")
                 print(f"  ├─ FK Loss:      {temp_avg_fkloss:.6f}  ({temp_avg_fkloss/total*100:5.1f}%)")
@@ -520,11 +614,13 @@ class EDGE:
                 
                 # Save progress metrics to files
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                temp_avg_fcs = avg_fcs_loss / fcs_steps if fcs_steps > 0 else 0.0
                 with open(metrics_file, 'a', newline='') as f:
                     writer = csv.writer(f)
                     writer.writerow([epoch, timestamp, f"{total:.6f}", f"{temp_avg_loss:.6f}",
                                    f"{temp_avg_vloss:.6f}", f"{temp_avg_fkloss:.6f}", 
-                                   f"{temp_avg_footloss:.6f}", "N/A", "N/A", "progress"])
+                                   f"{temp_avg_footloss:.6f}", f"{temp_avg_fcs:.6f}" if fcs_steps > 0 else "N/A",
+                                   "N/A", "N/A", "progress"])
                 
                 all_metrics.append({
                     'epoch': epoch,
@@ -534,6 +630,7 @@ class EDGE:
                     'v_loss': float(temp_avg_vloss),
                     'fk_loss': float(temp_avg_fkloss),
                     'foot_loss': float(temp_avg_footloss),
+                    'fcs_train_loss': float(temp_avg_fcs) if fcs_steps > 0 else None,
                     'fcs_score': None,
                     'pfc_score': None,
                     'type': 'progress'
@@ -588,11 +685,13 @@ class EDGE:
                     
                     # Save checkpoint metrics to files
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    temp_avg_fcs = avg_fcs_loss / fcs_steps if fcs_steps > 0 else 0.0
                     with open(metrics_file, 'a', newline='') as f:
                         writer = csv.writer(f)
                         writer.writerow([epoch, timestamp, f"{total:.6f}", f"{avg_loss:.6f}",
                                        f"{avg_vloss:.6f}", f"{avg_fkloss:.6f}", 
-                                       f"{avg_footloss:.6f}", f"{physics_result['mean_fcs_score']:.6f}",
+                                       f"{avg_footloss:.6f}", f"{temp_avg_fcs:.6f}" if fcs_steps > 0 else "N/A",
+                                       f"{physics_result['mean_fcs_score']:.6f}",
                                        f"{physics_result['mean_pfc_score']:.6f}", "checkpoint"])
                     
                     all_metrics.append({
@@ -603,6 +702,7 @@ class EDGE:
                         'v_loss': float(avg_vloss),
                         'fk_loss': float(avg_fkloss),
                         'foot_loss': float(avg_footloss),
+                        'fcs_train_loss': float(temp_avg_fcs) if fcs_steps > 0 else None,
                         'fcs_score': float(physics_result['mean_fcs_score']),
                         'pfc_score': float(physics_result['mean_pfc_score']),
                         'type': 'checkpoint'

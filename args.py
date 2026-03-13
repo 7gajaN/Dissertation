@@ -42,6 +42,9 @@ def parse_train_opt():
         "--fcs_loss_weight", type=float, default=0.0, help="Weight for Force Consistency Score loss (0.0 = disabled)"
     )
     parser.add_argument(
+        "--fcs_predictor_path", type=str, default="", help="Path to trained FCS predictor network"
+    )
+    parser.add_argument(
         "--fcs_regularize_every", type=int, default=10, help="Apply FCS regularization every N epochs"
     )
     parser.add_argument(

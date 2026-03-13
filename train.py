@@ -5,7 +5,8 @@ from EDGE import EDGE
 def train(opt):
     model = EDGE(
         opt.feature_type,
-        fcs_loss_weight=opt.fcs_loss_weight
+        fcs_loss_weight=opt.fcs_loss_weight,
+        fcs_predictor_path=opt.fcs_predictor_path
     )
     model.train_loop(opt)
 
