@@ -286,6 +286,7 @@ class EDGE:
         ground_penalty = ground_penetration.mean()
         
         # Penalty 2: Foot skating (high velocity when near ground)
+        # NOTE: Reduced weight since controlled sliding is necessary in dance (pivots, turns)
         foot_velocity = torch.norm(foot_positions[:, 1:] - foot_positions[:, :-1], dim=-1)  # (b, s-1, 4)
         near_ground = (adjusted_heights[:, :-1] < 0.08)  # feet within 8cm of ground
         skating_penalty = (foot_velocity * near_ground.float()).mean()
@@ -294,11 +295,11 @@ class EDGE:
         foot_accel = foot_velocity[:, 1:] - foot_velocity[:, :-1]  # (b, s-2, 4)
         accel_penalty = torch.relu(foot_accel.abs() - 2.0).mean()  # penalize > 2 m/s² change
         
-        # Combine penalties
+        # Combine penalties (prioritize ground penetration, allow some skating for dance)
         total_penalty = (
-            1.0 * ground_penalty +
-            0.5 * skating_penalty +
-            0.1 * accel_penalty
+            2.0 * ground_penalty +      # CRITICAL: feet must not go through floor
+            0.1 * skating_penalty +     # LOW: controlled sliding needed for pivots/turns
+            0.3 * accel_penalty         # MODERATE: limit unrealistic accelerations
         )
         
         stats = {
@@ -452,44 +453,52 @@ class EDGE:
                             self.diffusion.master_model, self.diffusion.model
                         )
             
-            # Periodic physics regularization (if enabled)
+            # Periodic physics evaluation (if enabled)
+            # Note: This monitors physics quality but doesn't apply gradients
+            # Full backprop through DDIM sampling is not feasible
             if (self.fcs_loss_weight > 0 and 
                 epoch % opt.fcs_regularize_every == 0 and
                 self.accelerator.is_main_process):
                 
-                print(f"\n[Physics] Applying regularization at epoch {epoch}...")
+                print(f"\n[Physics] Monitoring physics quality at epoch {epoch}...")
                 
-                # Get a batch for physics regularization
-                regularize_iter = iter(train_data_loader)
-                x_reg, cond_reg, _, _ = next(regularize_iter)
+                # Get a batch for evaluation
+                eval_iter = iter(train_data_loader)
+                x_eval, cond_eval, _, _ = next(eval_iter)
                 
                 try:
-                    # Compute physics penalty
-                    self.train()  # ensure train mode
-                    physics_penalty, penalty_stats = self.compute_physics_penalty(
-                        cond_reg, 
-                        num_samples=opt.fcs_num_samples
-                    )
-                    
-                    # Scale by weight
-                    weighted_penalty = self.fcs_loss_weight * physics_penalty
-                    
-                    # Gradient step to minimize physics violations
-                    self.optim.zero_grad()
-                    self.accelerator.backward(weighted_penalty)
-                    self.optim.step()
+                    # Compute physics metrics (no gradient)
+                    self.eval()
+                    with torch.no_grad():
+                        physics_penalty, penalty_stats = self.compute_physics_penalty(
+                            cond_eval, 
+                            num_samples=opt.fcs_num_samples
+                        )
                     
                     # Log physics penalties
-                    print(f"[Physics] Penalties - "
+                    print(f"[Physics] Metrics - "
                           f"Ground: {penalty_stats.get('ground_penalty', 0):.4f}, "
                           f"Skating: {penalty_stats.get('skating_penalty', 0):.4f}, "
                           f"Accel: {penalty_stats.get('accel_penalty', 0):.4f}, "
                           f"Total: {penalty_stats.get('total_penalty', 0):.4f}")
                     
+                    # Log to wandb if available
+                    if wandb.run is not None:
+                        wandb.log({
+                            'physics/ground_penalty': penalty_stats.get('ground_penalty', 0),
+                            'physics/skating_penalty': penalty_stats.get('skating_penalty', 0),  
+                            'physics/accel_penalty': penalty_stats.get('accel_penalty', 0),
+                            'physics/total_penalty': penalty_stats.get('total_penalty', 0),
+                            'epoch': epoch
+                        })
+                    
+                    self.train()  # back to train mode
+                    
                 except Exception as e:
-                    print(f"[Physics] Error during regularization: {e}")
+                    print(f"[Physics] Error during monitoring: {e}")
                     import traceback
                     traceback.print_exc()
+                    self.train()
             
             # Print progress every 50 epochs
             if self.accelerator.is_main_process and (epoch % 50 == 0):
