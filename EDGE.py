@@ -132,7 +132,7 @@ class EDGE:
         if fcs_predictor_path != "":
             try:
                 from model.fcs_predictor import FCSPredictor
-                checkpoint_fcs = torch.load(fcs_predictor_path, map_location=self.accelerator.device)
+                checkpoint_fcs = torch.load(fcs_predictor_path, map_location=self.accelerator.device, weights_only=False)
                 predictor_args = checkpoint_fcs.get('args', None)
                 
                 # Create predictor with same architecture as training
