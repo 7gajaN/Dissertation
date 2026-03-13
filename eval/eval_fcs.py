@@ -204,9 +204,9 @@ class ForceConsistencyEvaluator:
         velocity_threshold = 0.10  # 0.10 m/s (calibrated from debug_foot_contacts.py)
         slow_moving = foot_velocity < velocity_threshold  # (S-2, 4)
         
-        # Contact when foot is near ground OR moving slowly
-        # OR logic because dancers often slide/pivot when feet on ground
-        contacts = near_ground | slow_moving  # (S-2, 4)
+        # Contact when foot is near ground AND moving slowly
+        # Calibrated to detect ~3% of frames as contacts (debug stats: 3.1%)
+        contacts = near_ground & slow_moving  # (S-2, 4)
         
         # Get foot positions in analysis window
         foot_positions = feet[1:-1, :, :]  # (S-2, 4, 3) - middle frames
