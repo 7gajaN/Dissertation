@@ -17,22 +17,31 @@ def analyze_single_sequence():
     cached_path = 'data/dataset_backups/test_tensor_dataset.pkl'
     dataset = pickle.load(open(cached_path, 'rb'))
     
+    # Initialize SMPL skeleton
+    smpl = SMPLSkeleton()
+    
     # Get first sequence
     motion_data, _, _, _ = dataset[0]
     motion_data = motion_data.unsqueeze(0)
     motion_data = dataset.normalizer.unnormalize(motion_data)
-    motion = motion_data.squeeze(0).cpu().numpy()
+    motion_data = motion_data.squeeze(0).cpu()
     
-    # Convert to joint positions
-    smpl = SMPLSkeleton()
-    n_frames = motion.shape[0]
-    joint_positions = np.zeros((n_frames, 24, 3))
-    for i in range(n_frames):
-        pose = torch.from_numpy(motion[i]).float()
-        joints = smpl.forward(pose.unsqueeze(0)).squeeze(0).numpy()
-        joint_positions[i] = joints
+    # Parse motion data: [contacts(4), root_pos(3), local_q(24*6)]
+    seq_len, features = motion_data.shape
+    contact = motion_data[:, :4]
+    root_pos = motion_data[:, 4:7]
+    local_q_6d = motion_data[:, 7:]
     
-    print(f"Motion: {n_frames} frames, 24 joints")
+    # Convert 6D rotation to axis-angle
+    from dataset.quaternion import ax_from_6v
+    local_q_6d = local_q_6d.reshape(seq_len, 24, 6)
+    local_q = ax_from_6v(local_q_6d)  # (seq_len, 24, 3)
+    
+    # Forward kinematics to get joint positions
+    joint_positions = smpl.forward(local_q.unsqueeze(0), root_pos.unsqueeze(0))  # (1, seq_len, 24, 3)
+    joint_positions = joint_positions.squeeze(0).cpu().numpy()  # (seq_len, 24, 3)
+    
+    print(f"Motion: {seq_len} frames, 24 joints")
     
     # Evaluate with FCS
     fcs_evaluator = ForceConsistencyEvaluator(fps=30)
