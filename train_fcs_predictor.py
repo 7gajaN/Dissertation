@@ -6,6 +6,9 @@ This script:
 2. Computes ground-truth FCS for each
 3. Trains predictor network to match FCS scores
 4. Saves trained predictor for use in physics-aware training
+
+Usage:
+    accelerate launch train_fcs_predictor.py --batch_size 32 --epochs 100
 """
 
 import argparse
@@ -17,6 +20,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from tqdm import tqdm
+from accelerate import Accelerator
 
 from dataset.quaternion import ax_from_6v
 from eval.eval_fcs import ForceConsistencyEvaluator
@@ -61,14 +65,16 @@ def collate_fn(batch):
     return joints_batch, fcs_batch
 
 
-def prepare_dataset(dataset_path, max_samples=500, device='cuda'):
+def prepare_dataset(dataset_path, max_samples=500, accelerator=None):
     """Load dataset and compute FCS for all sequences"""
+    
+    device = accelerator.device if accelerator else 'cpu'
     
     print(f"Loading dataset from {dataset_path}...")
     dataset = pickle.load(open(dataset_path, 'rb'))
     print(f"Dataset loaded: {len(dataset)} sequences")
     
-    # Initialize
+    # Initialize (on correct device)
     fcs_evaluator = ForceConsistencyEvaluator(fps=30)
     smpl = SMPLSkeleton(device)
     
@@ -96,7 +102,9 @@ def prepare_dataset(dataset_path, max_samples=500, device='cuda'):
             local_q_6d = local_q_6d.reshape(seq_len, 24, 6)
             local_q = ax_from_6v(local_q_6d)
             
-            # Forward kinematics
+            # Forward kinematics (move to device first)
+            local_q = local_q.to(device)
+            root_pos = root_pos.to(device)
             joint_positions = smpl.forward(local_q.unsqueeze(0), root_pos.unsqueeze(0))
             joint_positions = joint_positions.squeeze(0).cpu().numpy()
             
@@ -118,10 +126,8 @@ def prepare_dataset(dataset_path, max_samples=500, device='cuda'):
     return FCSDataset(joint_positions_list, fcs_scores_list)
 
 
-def train_predictor(train_dataset, val_dataset, args):
+def train_predictor(train_dataset, val_dataset, args, accelerator):
     """Train FCS predictor network"""
-    
-    device = torch.device(args.device)
     
     # Create data loaders
     train_loader = DataLoader(
@@ -145,7 +151,7 @@ def train_predictor(train_dataset, val_dataset, args):
         hidden_dim=args.hidden_dim,
         num_layers=args.num_layers,
         dropout=args.dropout
-    ).to(device)
+    )
     
     print(f"\nFCS Predictor: {sum(p.numel() for p in model.parameters())} parameters")
     
@@ -153,6 +159,11 @@ def train_predictor(train_dataset, val_dataset, args):
     criterion = FCSPredictorLoss()
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, args.epochs)
+    
+    # Prepare with accelerate (handles device placement automatically)
+    model, optimizer, train_loader, val_loader, scheduler = accelerator.prepare(
+        model, optimizer, train_loader, val_loader, scheduler
+    )
     
     best_val_loss = float('inf')
     
@@ -163,13 +174,12 @@ def train_predictor(train_dataset, val_dataset, args):
         model.train()
         train_loss = 0
         for joints, fcs_true in train_loader:
-            joints = joints.to(device)
-            fcs_true = fcs_true.to(device)
+            # No need for .to(device) - accelerate handles it
             
             optimizer.zero_grad()
             fcs_pred = model(joints)
             loss = criterion(fcs_pred, fcs_true)
-            loss.backward()
+            accelerator.backward(loss)
             optimizer.step()
             
             train_loss += loss.item()
@@ -181,8 +191,7 @@ def train_predictor(train_dataset, val_dataset, args):
         val_loss = 0
         with torch.no_grad():
             for joints, fcs_true in val_loader:
-                joints = joints.to(device)
-                fcs_true = fcs_true.to(device)
+                # No need for .to(device) - accelerate handles it
                 
                 fcs_pred = model(joints)
                 loss = criterion(fcs_pred, fcs_true)
@@ -195,18 +204,21 @@ def train_predictor(train_dataset, val_dataset, args):
         if epoch % 10 == 0 or epoch == 1:
             print(f"Epoch {epoch:3d}/{args.epochs} | Train Loss: {train_loss:.4f} | Val Loss: {val_loss:.4f}")
         
-        # Save best model
+        # Save best model (unwrap model for saving)
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-            torch.save({
-                'epoch': epoch,
-                'model_state_dict': model.state_dict(),
-                'optimizer_state_dict': optimizer.state_dict(),
-                'val_loss': val_loss,
-                'args': args
-            }, args.save_path)
-            if epoch % 10 == 0:
-                print(f"  → Saved best model (val_loss: {val_loss:.4f})")
+            accelerator.wait_for_everyone()
+            unwrapped_model = accelerator.unwrap_model(model)
+            if accelerator.is_main_process:
+                torch.save({
+                    'epoch': epoch,
+                    'model_state_dict': unwrapped_model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'val_loss': val_loss,
+                    'args': args
+                }, args.save_path)
+                if epoch % 10 == 0:
+                    print(f"  → Saved best model (val_loss: {val_loss:.4f})")
     
     print(f"\nTraining complete! Best val loss: {best_val_loss:.4f}")
     print(f"Model saved to: {args.save_path}")
@@ -232,35 +244,49 @@ def main():
     parser.add_argument('--epochs', type=int, default=100)
     parser.add_argument('--lr', type=float, default=1e-3)
     parser.add_argument('--weight_decay', type=float, default=1e-4)
-    parser.add_argument('--device', type=str, default='cuda')
     
     args = parser.parse_args()
     
-    # Create save directory
-    Path(args.save_path).parent.mkdir(parents=True, exist_ok=True)
+    # Initialize accelerator
+    accelerator = Accelerator()
     
-    # Prepare datasets
-    print("="*70)
-    print("PREPARING TRAINING DATA")
-    print("="*70)
-    train_dataset = prepare_dataset(args.train_data, args.max_train_samples, args.device)
+    if accelerator.is_main_process:
+        # Create save directory
+        Path(args.save_path).parent.mkdir(parents=True, exist_ok=True)
+        
+        # Prepare datasets (only on main process to avoid conflicts)
+        print("="*70)
+        print("PREPARING TRAINING DATA")
+        print("="*70)
+        train_dataset = prepare_dataset(args.train_data, args.max_train_samples, accelerator)
+        
+        print("\n" + "="*70)
+        print("PREPARING VALIDATION DATA")
+        print("="*70)
+        val_dataset = prepare_dataset(args.test_data, args.max_val_samples, accelerator)
+    else:
+        # Other processes just need the data structure, but can reuse from main process
+        train_dataset = prepare_dataset(args.train_data, args.max_train_samples, accelerator)
+        val_dataset = prepare_dataset(args.test_data, args.max_val_samples, accelerator)
     
-    print("\n" + "="*70)
-    print("PREPARING VALIDATION DATA")
-    print("="*70)
-    val_dataset = prepare_dataset(args.test_data, args.max_val_samples, args.device)
+    accelerator.wait_for_everyone()
     
     # Train predictor
-    print("\n" + "="*70)
-    print("TRAINING FCS PREDICTOR")
-    print("="*70)
-    model = train_predictor(train_dataset, val_dataset, args)
+    if accelerator.is_main_process:
+        print("\n" + "="*70)
+        print("TRAINING FCS PREDICTOR")
+        print("="*70)
     
-    print("\n" + "="*70)
-    print("DONE!")
-    print("="*70)
-    print(f"Use this predictor in training with:")
-    print(f"  --fcs_predictor_path {args.save_path}")
+    model = train_predictor(train_dataset, val_dataset, args, accelerator)
+    
+    if accelerator.is_main_process:
+        print("\n" + "="*70)
+        print("DONE!")
+        print("="*70)
+        print(f"Use this predictor in training with:")
+        print(f"  --fcs_predictor_path {args.save_path}")
+        print(f"\nOr with accelerate:")
+        print(f"  accelerate launch train.py --fcs_predictor_path {args.save_path} --fcs_loss_weight 0.5")
 
 
 if __name__ == '__main__':
