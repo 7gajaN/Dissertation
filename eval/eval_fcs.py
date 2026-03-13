@@ -185,19 +185,28 @@ class ForceConsistencyEvaluator:
         """
         feet = joint_positions[:, foot_indices, :]  # (S, 4, 3)
         
+        # Ground-level adjustment: AIST++ data has arbitrary origin, not ground at z=0
+        # Adjust heights relative to minimum height (ground level) per sequence
+        min_height = np.min(feet[:, :, self.up_axis])  # Minimum across all frames and feet
+        
         # Calculate horizontal foot velocity
         foot_velocity = np.linalg.norm(
             feet[2:, :, self.horizontal_axes] - feet[1:-1, :, self.horizontal_axes],
             axis=-1
         )  # (S-2, 4)
         
-        # Check foot height (feet near ground)  
-        foot_height = feet[1:-1, :, self.up_axis]  # (S-2, 4) - height of feet in analysis window
-        ground_threshold = 0.10  # 10cm above ground
+        # Check foot height (feet near ground) - ADJUSTED relative to ground level
+        foot_height = feet[1:-1, :, self.up_axis] - min_height  # (S-2, 4) - adjusted height
+        ground_threshold = 0.15  # 15cm above ground (calibrated from debug_foot_contacts.py)
         near_ground = foot_height < ground_threshold  # (S-2, 4)
         
-        # Contact when velocity is low AND foot is near ground
-        contacts = (foot_velocity < self.min_contact_velocity) & near_ground  # (S-2, 4)
+        # Velocity threshold calibrated from real data analysis
+        velocity_threshold = 0.10  # 0.10 m/s (calibrated from debug_foot_contacts.py)
+        slow_moving = foot_velocity < velocity_threshold  # (S-2, 4)
+        
+        # Contact when foot is near ground OR moving slowly
+        # OR logic because dancers often slide/pivot when feet on ground
+        contacts = near_ground | slow_moving  # (S-2, 4)
         
         # Get foot positions in analysis window
         foot_positions = feet[1:-1, :, :]  # (S-2, 4, 3) - middle frames
