@@ -105,17 +105,19 @@ class EDGE:
         
         # Initialize FCS evaluator for physics validation
         try:
-            from eval.eval_fcs import ForceConsistencyEvaluator
+            from eval.eval_fcs import ForceConsistencyEvaluator, calculate_pfc_score
             self.fcs_evaluator = ForceConsistencyEvaluator(fps=30)
+            self.calculate_pfc = calculate_pfc_score
             self.use_fcs = True
             print("="*60)
             print("✓ FCS evaluator initialized for physics monitoring")
+            print("✓ PFC metric available for comparison")
             print("="*60)
         except Exception as e:
             self.use_fcs = False
             print("="*60)
             print(f"✗ FCS evaluator initialization failed: {type(e).__name__}: {e}")
-            print("✗ FCS physics validation will be skipped")
+            print("✗ FCS/PFC physics validation will be skipped")
             print("="*60)
 
         if checkpoint_path != "":
@@ -134,18 +136,18 @@ class EDGE:
 
     def evaluate_fcs_on_batch(self, cond, num_samples=4):
         """
-        Evaluate Force Consistency Score on generated samples.
+        Evaluate Force Consistency Score and PFC on generated samples.
         
         Args:
             cond: Conditioning features (music) - (B, S, C)
             num_samples: Number of samples to evaluate
         
         Returns:
-            dict with mean_fcs_score and individual scores
+            dict with mean_fcs_score, mean_pfc_score and individual scores
         """
         if not self.use_fcs:
-            print("[FCS] Skipped - evaluator not initialized")
-            return {'mean_fcs_score': 0.0, 'individual_scores': [], 'num_evaluated': 0}
+            print("[Physics] Skipped - evaluator not initialized")
+            return {'mean_fcs_score': 0.0, 'mean_pfc_score': 0.0, 'individual_fcs': [], 'individual_pfc': [], 'num_evaluated': 0}
         
         self.eval()
         
@@ -179,39 +181,49 @@ class EDGE:
                 joint_positions = self.diffusion.smpl.forward(sample_q, sample_x)  # (b, s, 24, 3)
                 print(f"[FCS] Joint positions shape: {joint_positions.shape}")
                 
-                # Evaluate FCS for each sample
+                # Evaluate FCS and PFC for each sample
                 fcs_scores = []
+                pfc_scores = []
                 for i in range(batch_size):
                     joints_np = joint_positions[i].cpu().numpy()  # (s, 24, 3)
                     
                     try:
-                        result = self.fcs_evaluator.evaluate_motion(joints_np)
-                        fcs_scores.append(result['fcs_score'])
-                        print(f"[FCS] Sample {i+1}/{batch_size}: {result['fcs_score']:.4f}")
+                        # Calculate FCS
+                        fcs_result = self.fcs_evaluator.evaluate_motion(joints_np)
+                        fcs_scores.append(fcs_result['fcs_score'])
+                        
+                        # Calculate PFC
+                        pfc_score = self.calculate_pfc(joints_np)
+                        pfc_scores.append(pfc_score)
+                        
+                        print(f"[Physics] Sample {i+1}/{batch_size}: FCS={fcs_result['fcs_score']:.4f}, PFC={pfc_score:.4f}")
                     except Exception as e:
-                        print(f"[FCS] ERROR evaluating sample {i+1}: {type(e).__name__}: {e}")
+                        print(f"[Physics] ERROR evaluating sample {i+1}: {type(e).__name__}: {e}")
                         import traceback
                         traceback.print_exc()
                         continue
                 
                 if len(fcs_scores) == 0:
-                    print("[FCS] WARNING: All samples failed evaluation!")
-                    return {'mean_fcs_score': 0.0, 'individual_scores': [], 'num_evaluated': 0}
+                    print("[Physics] WARNING: All samples failed evaluation!")
+                    return {'mean_fcs_score': 0.0, 'mean_pfc_score': 0.0, 'individual_fcs': [], 'individual_pfc': [], 'num_evaluated': 0}
                 
                 mean_fcs = float(sum(fcs_scores) / len(fcs_scores))
-                print(f"[FCS] Mean score: {mean_fcs:.4f} (from {len(fcs_scores)}/{batch_size} samples)")
+                mean_pfc = float(sum(pfc_scores) / len(pfc_scores))
+                print(f"[Physics] Mean FCS: {mean_fcs:.4f}, Mean PFC: {mean_pfc:.4f} (from {len(fcs_scores)}/{batch_size} samples)")
                 
         except Exception as e:
-            print(f"[FCS] CRITICAL ERROR in evaluation pipeline: {type(e).__name__}: {e}")
+            print(f"[Physics] CRITICAL ERROR in evaluation pipeline: {type(e).__name__}: {e}")
             import traceback
             traceback.print_exc()
-            return {'mean_fcs_score': 0.0, 'individual_scores': [], 'num_evaluated': 0}
+            return {'mean_fcs_score': 0.0, 'mean_pfc_score': 0.0, 'individual_fcs': [], 'individual_pfc': [], 'num_evaluated': 0}
         finally:
             self.train()
         
         return {
             'mean_fcs_score': mean_fcs,
-            'individual_scores': fcs_scores,
+            'mean_pfc_score': mean_pfc,
+            'individual_fcs': fcs_scores,
+            'individual_pfc': pfc_scores,
             'num_evaluated': len(fcs_scores)
         }
 
@@ -298,7 +310,7 @@ class EDGE:
             with open(metrics_file, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['Epoch', 'Timestamp', 'Total_Loss', 'Train_Loss', 
-                                'V_Loss', 'FK_Loss', 'Foot_Loss', 'FCS_Score', 'Type'])
+                                'V_Loss', 'FK_Loss', 'Foot_Loss', 'FCS_Score', 'PFC_Score', 'Type'])
             
             # Initialize JSON metrics list
             all_metrics = []
@@ -376,7 +388,7 @@ class EDGE:
                     writer = csv.writer(f)
                     writer.writerow([epoch, timestamp, f"{total:.6f}", f"{temp_avg_loss:.6f}",
                                    f"{temp_avg_vloss:.6f}", f"{temp_avg_fkloss:.6f}", 
-                                   f"{temp_avg_footloss:.6f}", "N/A", "progress"])
+                                   f"{temp_avg_footloss:.6f}", "N/A", "N/A", "progress"])
                 
                 all_metrics.append({
                     'epoch': epoch,
@@ -387,6 +399,7 @@ class EDGE:
                     'fk_loss': float(temp_avg_fkloss),
                     'foot_loss': float(temp_avg_footloss),
                     'fcs_score': None,
+                    'pfc_score': None,
                     'type': 'progress'
                 })
             
@@ -403,23 +416,24 @@ class EDGE:
                     avg_fkloss /= len(train_data_loader)
                     avg_footloss /= len(train_data_loader)
                     
-                    # Evaluate FCS on validation samples
-                    fcs_result = {'mean_fcs_score': 0.0}
+                    # Evaluate FCS and PFC on validation samples
+                    physics_result = {'mean_fcs_score': 0.0, 'mean_pfc_score': 0.0}
                     if self.use_fcs:
                         try:
-                            # Use test data for FCS evaluation
+                            # Use test data for physics evaluation
                             (_, val_cond, _, _) = next(iter(test_data_loader))
                             val_cond = val_cond.to(self.accelerator.device)
-                            print("[FCS] Evaluating physics quality...")
-                            fcs_result = self.evaluate_fcs_on_batch(val_cond, num_samples=4)
-                            print(f"[FCS] Score: {fcs_result['mean_fcs_score']:.4f} "
-                                  f"({fcs_result['num_evaluated']} samples evaluated)")
+                            print("[Physics] Evaluating FCS and PFC quality...")
+                            physics_result = self.evaluate_fcs_on_batch(val_cond, num_samples=4)
+                            print(f"[Physics] FCS: {physics_result['mean_fcs_score']:.4f}, "
+                                  f"PFC: {physics_result['mean_pfc_score']:.4f} "
+                                  f"({physics_result['num_evaluated']} samples evaluated)")
                         except Exception as e:
                             import traceback
-                            print(f"[FCS] Evaluation failed: {type(e).__name__}: {e}")
+                            print(f"[Physics] Evaluation failed: {type(e).__name__}: {e}")
                             print(traceback.format_exc())
                     else:
-                        print("[FCS] Skipped - evaluator not initialized")
+                        print("[Physics] Skipped - evaluator not initialized")
                     
                     # Print detailed checkpoint summary
                     total = avg_loss + avg_vloss + avg_fkloss + avg_footloss
@@ -431,7 +445,8 @@ class EDGE:
                     print(f"  ├─ V Loss:       {avg_vloss:.6f}")
                     print(f"  ├─ FK Loss:      {avg_fkloss:.6f}")
                     print(f"  ├─ Foot Loss:    {avg_footloss:.6f}")
-                    print(f"  └─ FCS Score:    {fcs_result['mean_fcs_score']:.6f}")
+                    print(f"  ├─ FCS Score:    {physics_result['mean_fcs_score']:.6f}")
+                    print(f"  └─ PFC Score:    {physics_result['mean_pfc_score']:.6f}")
                     print(f"  Model saved to:  weights/train-{epoch}.pt")
                     print(f"{'#'*70}\n")
                     
@@ -441,8 +456,8 @@ class EDGE:
                         writer = csv.writer(f)
                         writer.writerow([epoch, timestamp, f"{total:.6f}", f"{avg_loss:.6f}",
                                        f"{avg_vloss:.6f}", f"{avg_fkloss:.6f}", 
-                                       f"{avg_footloss:.6f}", f"{fcs_result['mean_fcs_score']:.6f}", 
-                                       "checkpoint"])
+                                       f"{avg_footloss:.6f}", f"{physics_result['mean_fcs_score']:.6f}",
+                                       f"{physics_result['mean_pfc_score']:.6f}", "checkpoint"])
                     
                     all_metrics.append({
                         'epoch': epoch,
@@ -452,7 +467,8 @@ class EDGE:
                         'v_loss': float(avg_vloss),
                         'fk_loss': float(avg_fkloss),
                         'foot_loss': float(avg_footloss),
-                        'fcs_score': float(fcs_result['mean_fcs_score']),
+                        'fcs_score': float(physics_result['mean_fcs_score']),
+                        'pfc_score': float(physics_result['mean_pfc_score']),
                         'type': 'checkpoint'
                     })
                     
@@ -471,7 +487,8 @@ class EDGE:
                         "V Loss": avg_vloss,
                         "FK Loss": avg_fkloss,
                         "Foot Loss": avg_footloss,
-                        "FCS Score": fcs_result['mean_fcs_score'],
+                        "FCS Score": physics_result['mean_fcs_score'],
+                        "PFC Score": physics_result['mean_pfc_score'],
                     }
                     wandb.log(log_dict)
                     ckpt = {
