@@ -20,7 +20,7 @@ def analyze_single_sequence():
     # Get first sequence
     motion_data, _, _, _ = dataset[0]
     motion_data = motion_data.unsqueeze(0)
-    motion_data = dataset.normalizer.backward(motion_data)
+    motion_data = dataset.normalizer.unnormalize(motion_data)
     motion = motion_data.squeeze(0).cpu().numpy()
     
     # Convert to joint positions
