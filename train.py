@@ -3,7 +3,10 @@ from EDGE import EDGE
 
 
 def train(opt):
-    model = EDGE(opt.feature_type)
+    model = EDGE(
+        opt.feature_type,
+        fcs_loss_weight=opt.fcs_loss_weight
+    )
     model.train_loop(opt)
 
 

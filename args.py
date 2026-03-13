@@ -38,6 +38,15 @@ def parse_train_opt():
     parser.add_argument(
         "--checkpoint", type=str, default="", help="trained checkpoint path (optional)"
     )
+    parser.add_argument(
+        "--fcs_loss_weight", type=float, default=0.0, help="Weight for Force Consistency Score loss (0.0 = disabled)"
+    )
+    parser.add_argument(
+        "--fcs_regularize_every", type=int, default=10, help="Apply FCS regularization every N epochs"
+    )
+    parser.add_argument(
+        "--fcs_num_samples", type=int, default=4, help="Number of samples for FCS regularization"
+    )
     opt = parser.parse_args()
     return opt
 

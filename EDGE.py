@@ -41,12 +41,16 @@ class EDGE:
         EMA=True,
         learning_rate=4e-4,
         weight_decay=0.02,
+        fcs_loss_weight=0.0,
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
         self.accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
         state = AcceleratorState()
         num_processes = state.num_processes
         use_baseline_feats = feature_type == "baseline"
+        
+        # Store FCS loss weight
+        self.fcs_loss_weight = fcs_loss_weight
 
         pos_dim = 3
         rot_dim = 24 * 6  # 24 joints, 6dof
@@ -112,12 +116,15 @@ class EDGE:
             print("="*60)
             print("✓ FCS evaluator initialized for physics monitoring")
             print("✓ PFC metric available for comparison")
+            if self.fcs_loss_weight > 0:
+                print(f"✓ FCS loss enabled with weight: {self.fcs_loss_weight}")
             print("="*60)
         except Exception as e:
             self.use_fcs = False
             print("="*60)
             print(f"✗ FCS evaluator initialization failed: {type(e).__name__}: {e}")
             print("✗ FCS/PFC physics validation will be skipped")
+            print("="*60)
             print("="*60)
 
         if checkpoint_path != "":
@@ -226,6 +233,82 @@ class EDGE:
             'individual_pfc': pfc_scores,
             'num_evaluated': len(fcs_scores)
         }
+    
+    def compute_physics_penalty(self, cond, num_samples=4):
+        """
+        Compute a simplified, differentiable physics penalty on generated samples.
+        This is a lightweight approximation of FCS for use during training.
+        
+        Penalizes:
+        - Feet going through ground (height < 0)
+        - High accelerations when feet should be in contact
+        - Unrealistic velocities
+        
+        Args:
+            cond: Conditioning features (B, S, C)
+            num_samples: Number of samples to generate
+        
+        Returns:
+            penalty: Scalar differentiable tensor
+            stats: Dict with penalty components for logging
+        """
+        if self.fcs_loss_weight <= 0:
+            return torch.tensor(0.0, device=cond.device), {}
+        
+        # Generate clean samples (with gradients!)
+        batch_size = min(num_samples, len(cond))
+        shape = (batch_size, self.horizon, self.repr_dim)
+        
+        # Sample with gradients enabled
+        samples = self.diffusion.ddim_sample(shape, cond[:batch_size])
+        
+        # Unnormalize
+        samples = self.normalizer.unnormalize(samples)
+        
+        # Parse motion: contacts(4), root(3), rotations(24*6)
+        b, s, c = samples.shape
+        sample_contact, motion = torch.split(samples, (4, c - 4), dim=2)
+        sample_x = motion[:, :, :3]  # root position
+        sample_q = ax_from_6v(motion[:, :, 3:].reshape(b, s, 24, 6))  # rotations
+        
+        # Forward kinematics to get joint positions
+        joint_positions = self.diffusion.smpl.forward(sample_q, sample_x)  # (b, s, 24, 3)
+        
+        # Get foot joint indices (ankles and toes)
+        foot_idx = [7, 8, 10, 11]  # L_Ankle, R_Ankle, L_Toe, R_Toe
+        foot_positions = joint_positions[:, :, foot_idx, :]  # (b, s, 4, 3)
+        
+        # Penalty 1: Feet going through ground (height < 0)
+        # Adjust heights relative to minimum (ground level)
+        min_height = foot_positions[:, :, :, 2].min(dim=1, keepdim=True)[0]  # (b, 1, 4)
+        adjusted_heights = foot_positions[:, :, :, 2] - min_height  # (b, s, 4)
+        ground_penetration = torch.relu(-adjusted_heights)  # penalize negative heights
+        ground_penalty = ground_penetration.mean()
+        
+        # Penalty 2: Foot skating (high velocity when near ground)
+        foot_velocity = torch.norm(foot_positions[:, 1:] - foot_positions[:, :-1], dim=-1)  # (b, s-1, 4)
+        near_ground = (adjusted_heights[:, :-1] < 0.08)  # feet within 8cm of ground
+        skating_penalty = (foot_velocity * near_ground.float()).mean()
+        
+        # Penalty 3: Excessive accelerations (unrealistic forces)
+        foot_accel = foot_velocity[:, 1:] - foot_velocity[:, :-1]  # (b, s-2, 4)
+        accel_penalty = torch.relu(foot_accel.abs() - 2.0).mean()  # penalize > 2 m/s² change
+        
+        # Combine penalties
+        total_penalty = (
+            1.0 * ground_penalty +
+            0.5 * skating_penalty +
+            0.1 * accel_penalty
+        )
+        
+        stats = {
+            'ground_penalty': float(ground_penalty),
+            'skating_penalty': float(skating_penalty),
+            'accel_penalty': float(accel_penalty),
+            'total_penalty': float(total_penalty)
+        }
+        
+        return total_penalty, stats
 
     def prepare(self, objects):
         return self.accelerator.prepare(*objects)
@@ -331,7 +414,12 @@ class EDGE:
             print(f"  Batch Size:      {opt.batch_size}")
             print(f"  Save Interval:   {opt.save_interval} epochs")
             print(f"  Feature Type:    {opt.feature_type}")
-            print(f"  FCS Enabled:     {self.use_fcs}")
+            print(f"  FCS Monitoring:  {self.use_fcs}")
+            if self.fcs_loss_weight > 0:
+                print(f" Physics Regularization:")
+                print(f"    Weight:       {self.fcs_loss_weight}")
+                print(f"    Every:        {opt.fcs_regularize_every} epochs")
+                print(f"    Samples:      {opt.fcs_num_samples}")
             print(f"  Progress prints: Every 50 epochs")
             print(f"{'='*70}\n")
         
@@ -363,6 +451,45 @@ class EDGE:
                         self.diffusion.ema.update_model_average(
                             self.diffusion.master_model, self.diffusion.model
                         )
+            
+            # Periodic physics regularization (if enabled)
+            if (self.fcs_loss_weight > 0 and 
+                epoch % opt.fcs_regularize_every == 0 and
+                self.accelerator.is_main_process):
+                
+                print(f"\n[Physics] Applying regularization at epoch {epoch}...")
+                
+                # Get a batch for physics regularization
+                regularize_iter = iter(train_data_loader)
+                x_reg, cond_reg, _, _ = next(regularize_iter)
+                
+                try:
+                    # Compute physics penalty
+                    self.train()  # ensure train mode
+                    physics_penalty, penalty_stats = self.compute_physics_penalty(
+                        cond_reg, 
+                        num_samples=opt.fcs_num_samples
+                    )
+                    
+                    # Scale by weight
+                    weighted_penalty = self.fcs_loss_weight * physics_penalty
+                    
+                    # Gradient step to minimize physics violations
+                    self.optim.zero_grad()
+                    self.accelerator.backward(weighted_penalty)
+                    self.optim.step()
+                    
+                    # Log physics penalties
+                    print(f"[Physics] Penalties - "
+                          f"Ground: {penalty_stats.get('ground_penalty', 0):.4f}, "
+                          f"Skating: {penalty_stats.get('skating_penalty', 0):.4f}, "
+                          f"Accel: {penalty_stats.get('accel_penalty', 0):.4f}, "
+                          f"Total: {penalty_stats.get('total_penalty', 0):.4f}")
+                    
+                except Exception as e:
+                    print(f"[Physics] Error during regularization: {e}")
+                    import traceback
+                    traceback.print_exc()
             
             # Print progress every 50 epochs
             if self.accelerator.is_main_process and (epoch % 50 == 0):
