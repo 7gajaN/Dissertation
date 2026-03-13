@@ -200,12 +200,13 @@ class ForceConsistencyEvaluator:
         ground_threshold = 0.15  # 15cm above ground (calibrated from debug_foot_contacts.py)
         near_ground = foot_height < ground_threshold  # (S-2, 4)
         
-        # Velocity threshold calibrated from real data analysis
-        velocity_threshold = 0.10  # 0.10 m/s (calibrated from debug_foot_contacts.py)
+        # Velocity threshold - allowing sliding/pivoting during contact
+        velocity_threshold = 0.50  # 0.50 m/s (calibrated from debug_foot_contacts.py)
         slow_moving = foot_velocity < velocity_threshold  # (S-2, 4)
         
-        # Contact when foot is near ground AND moving slowly
-        # Calibrated to detect ~3% of frames as contacts (debug stats: 3.1%)
+        # Contact when foot is near ground AND moving relatively slowly
+        # Calibrated to detect ~21% of frames as contacts (debug stats: 21.0%)
+        # Higher velocity threshold accounts for foot sliding during pivots/turns
         contacts = near_ground & slow_moving  # (S-2, 4)
         
         # Get foot positions in analysis window
