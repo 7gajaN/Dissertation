@@ -106,5 +106,10 @@ def parse_test_opt():
         default="cached_features/",
         help="Where to save/load the features",
     )
+    parser.add_argument(
+        "--use_first_segment",
+        action="store_true",
+        help="Use the first segment of each song instead of random (useful for Blender sync)",
+    )
     opt = parser.parse_args()
     return opt

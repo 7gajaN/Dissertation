@@ -60,7 +60,7 @@ def test(opt):
             if len(file_list) < sample_size:
                 print(f"  Skipping - need at least {sample_size} files, only found {len(file_list)}")
                 continue
-            rand_idx = random.randint(0, len(file_list) - sample_size)
+            rand_idx = 0 if opt.use_first_segment else random.randint(0, len(file_list) - sample_size)
             file_list = file_list[rand_idx : rand_idx + sample_size]
             juke_file_list = juke_file_list[rand_idx : rand_idx + sample_size]
             cond_list = [np.load(x) for x in juke_file_list]
@@ -87,7 +87,7 @@ def test(opt):
             if len(file_list) < sample_size:
                 print(f"  Skipping - audio too short (need {sample_size} slices, got {len(file_list)})")
                 continue
-            rand_idx = random.randint(0, len(file_list) - sample_size)
+            rand_idx = 0 if opt.use_first_segment else random.randint(0, len(file_list) - sample_size)
             cond_list = []
             # generate juke representations
             print(f"Computing features for {wav_file}")
