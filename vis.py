@@ -248,9 +248,10 @@ def skeleton_render(
                 out, f"{epoch}_{os.path.splitext(os.path.basename(name))[0]}.mp4"
             )
         if render:
-            out = os.system(
-                f"ffmpeg -loglevel error -stream_loop 0 -y -i {gifname} -i {audioname} -shortest -c:v libx264 -crf 26 -c:a aac -q:a 4 {outname}"
-            )
+            # Use warning level to see issues, add pix_fmt for compatibility
+            cmd = f'ffmpeg -loglevel warning -stream_loop 0 -y -i "{gifname}" -i "{audioname}" -shortest -pix_fmt yuv420p -c:v libx264 -crf 26 -c:a aac -q:a 4 "{outname}"'
+            print(f"Running: {cmd}")
+            out = os.system(cmd)
     else:
         if render:
             # actually save the gif
