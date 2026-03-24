@@ -50,6 +50,18 @@ def parse_train_opt():
     parser.add_argument(
         "--fcs_num_samples", type=int, default=4, help="Number of samples for FCS regularization"
     )
+    parser.add_argument(
+        "--com_loss_weight", type=float, default=0.0,
+        help="Weight for CoM/BoS balance loss — penalises CoM outside support polygon (0.0 = disabled)"
+    )
+    parser.add_argument(
+        "--bilateral_loss_weight", type=float, default=0.0,
+        help="Weight for bilateral foot exclusivity loss — penalises both feet sliding simultaneously (0.0 = disabled)"
+    )
+    parser.add_argument(
+        "--foot_height_loss_weight", type=float, default=0.0,
+        help="Weight for foot height during contact loss — penalises hovering feet when contact is predicted (0.0 = disabled)"
+    )
     opt = parser.parse_args()
     return opt
 
