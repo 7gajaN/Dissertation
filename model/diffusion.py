@@ -566,7 +566,10 @@ class GaussianDiffusion(nn.Module):
             masses = self._joint_masses.view(1, 1, 24, 1)            # (1,1,24,1)
             com = (model_xp * masses).sum(dim=2)                      # (B,S,3)
             com_h = com[:, :, :2]                                     # XY plane (B,S,2)
-            foot_h = model_xp[:, :, foot_idx, :2]                    # (B,S,4,2)
+            # Detach foot positions for the support center so it is a fixed
+            # reference each step — prevents the circular gradient loop where
+            # moving feet changes the target, which moves the feet again.
+            foot_h = model_xp[:, :, foot_idx, :2].detach()           # (B,S,4,2)
             contact_w = (model_contact > 0.95).float()                # (B,S,4)
             denom = contact_w.sum(dim=-1, keepdim=True).clamp(min=1.) # (B,S,1)
             support_center = (foot_h * contact_w.unsqueeze(-1)).sum(dim=2) / denom  # (B,S,2)
