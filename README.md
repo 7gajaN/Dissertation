@@ -24,6 +24,65 @@ This repository additionally depends on the following libraries, which may requi
 * [accelerate](https://huggingface.co/docs/accelerate/v0.16.0/en/index)
 	* Note: after installation, don't forget to run `accelerate config` . We use fp16.
 * [wine](https://www.winehq.org) (Optional, for import to Blender only)
+## Environment Setup (RTX 5090 / Blackwell GPUs)
+
+The original repo targets PyTorch 1.12.1 + CUDA 11.6, which does **not** support Blackwell-architecture GPUs (RTX 5090, compute capability sm_120). The setup below uses PyTorch 2.7+ with CUDA 12.8, which has been validated with the full codebase.
+
+**Tested on:**
+* NVIDIA GeForce RTX 5090, Driver 570.124.04, CUDA 12.8
+* Python 3.9, PyTorch 2.7.1+cu128
+
+### 1. Install Miniconda (if not already installed)
+```bash
+curl -sL https://repo.anaconda.com/miniconda/Miniconda3-latest-Linux-x86_64.sh -o /tmp/miniconda.sh
+bash /tmp/miniconda.sh -b -p ~/miniconda3
+eval "$(~/miniconda3/bin/conda shell.bash hook)"
+conda init bash
+```
+
+### 2. Create the conda environment
+```bash
+conda create -n edge python=3.9 -y
+conda activate edge
+```
+
+### 3. Install PyTorch with CUDA 12.8
+```bash
+pip install torch==2.7.1 torchvision==0.22.1 torchaudio==2.7.1 --index-url https://download.pytorch.org/whl/cu128
+```
+
+### 4. Install pytorch3d from source
+Pre-built wheels are not available for this PyTorch/CUDA combination, so pytorch3d must be compiled from source. This takes a few minutes.
+```bash
+pip install "pytorch3d @ git+https://github.com/facebookresearch/pytorch3d.git"
+```
+
+### 5. Install remaining dependencies
+```bash
+pip install accelerate einops librosa soundfile matplotlib tqdm wandb scipy p_tqdm jupyter ipykernel gdown
+pip install git+https://github.com/rodrigo-castellon/jukemirlib.git
+```
+
+### 6. Configure accelerate
+```bash
+accelerate config
+```
+Select: single machine, single GPU, fp16 mixed precision.
+
+### 7. Verify the installation
+```bash
+python -c "
+import torch
+print(f'PyTorch {torch.__version__}, CUDA: {torch.cuda.is_available()}, GPU: {torch.cuda.get_device_name(0)}')
+t = torch.randn(10, device='cuda')
+print('GPU compute OK')
+from pytorch3d.transforms import axis_angle_to_quaternion
+print('pytorch3d OK')
+from EDGE import EDGE
+print('Project imports OK')
+"
+```
+
 ## Getting started
 ### Quickstart
 * Download the saved model checkpoint from [Google Drive](https://drive.google.com/file/d/1BAR712cVEqB8GR37fcEihRV_xOC-fZrZ/view?usp=share_link) or by running `bash download_model.sh`.
