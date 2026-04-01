@@ -1,0 +1,732 @@
+
+========================================
+[Sun Mar 29 21:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: WAITING (launch script running, training not started yet)
+========================================
+
+========================================
+[Sun Mar 29 22:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: WAITING (launch script running, training not started yet)
+========================================
+
+========================================
+[Sun Mar 29 23:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: WAITING (launch script running, training not started yet)
+========================================
+
+========================================
+[Mon Mar 30 00:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: WAITING (launch script running, training not started yet)
+========================================
+
+========================================
+[Mon Mar 30 01:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: WAITING (launch script running, training not started yet)
+========================================
+
+========================================
+[Mon Mar 30 02:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: NOT RUNNING
+========================================
+
+========================================
+[Mon Mar 30 03:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: NOT RUNNING
+========================================
+
+========================================
+[Mon Mar 30 04:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: NOT RUNNING
+========================================
+
+========================================
+[Mon Mar 30 05:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: NOT RUNNING
+========================================
+
+========================================
+[Mon Mar 30 06:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: NOT RUNNING
+========================================
+
+========================================
+[Mon Mar 30 07:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+69 %, 12885 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 08:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+58 %, 12885 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 09:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+65 %, 12885 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 10:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+0 %, 12885 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 11:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+79 %, 13103 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 12:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+53 %, 13103 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 13:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+56 %, 13103 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 14:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+56 %, 13103 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 15:00:02 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+0 %, 13103 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 16:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+68 %, 12885 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 17:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+55 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 18:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+0 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 19:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+39 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 20:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+33 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 21:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+88 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 22:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+50 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Mon Mar 30 23:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+83 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 00:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+27 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 01:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+61 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 02:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+85 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 03:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+24 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 04:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+72 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 05:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+69 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 06:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+72 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 07:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+0 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 08:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+0 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 09:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+36 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 10:00:02 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+69 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 11:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+83 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 12:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+68 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 13:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+33 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 14:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+0 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 15:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+81 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 16:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+35 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 17:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+34 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 18:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+0 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 19:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: RUNNING
+Metrics file: /workspace/Dissertation/runs/fcs/physics_v1/training_metrics.csv
+
+Latest metrics:
+Epoch,Timestamp,Total_Loss,Train_Loss,V_Loss,FK_Loss,Foot_Loss,FCS_Train_Loss,FCS_Score,PFC_Score,Type
+
+FCS Loss values from checkpoints:
+
+WARNING: FCS loss appears to be zero or N/A in all checkpoints!
+The FCS predictor may not be working correctly.
+
+GPU Status:
+25 %, 13133 MiB, 32607 MiB
+========================================
+
+========================================
+[Tue Mar 31 20:00:01 UTC 2026] Hourly FCS Training Check
+========================================
+Status: NOT RUNNING
+========================================

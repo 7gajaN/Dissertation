@@ -106,6 +106,10 @@ class EDGE:
 
         self.model = self.accelerator.prepare(model)
         self.diffusion = diffusion.to(self.accelerator.device)
+
+        # Set FCS loss weight on the diffusion model
+        self.diffusion.fcs_loss_weight = fcs_loss_weight
+
         optim = Adan(model.parameters(), lr=learning_rate, weight_decay=weight_decay)
         self.optim = self.accelerator.prepare(optim)
         
@@ -148,10 +152,13 @@ class EDGE:
                 
                 self.fcs_predictor.load_state_dict(checkpoint_fcs['model_state_dict'])
                 self.fcs_predictor.eval()  # Always in eval mode
-                
+
+                # Attach predictor to diffusion model so it's used in p_losses
+                self.diffusion.fcs_predictor = self.fcs_predictor
+
                 print("="*60)
                 print(f"✓ FCS predictor loaded from {fcs_predictor_path}")
-                print(f"✓ Differentiable physics loss enabled")
+                print(f"✓ Differentiable physics loss enabled (weight={fcs_loss_weight})")
                 print("="*60)
             except Exception as e:
                 self.fcs_predictor = None
@@ -464,8 +471,8 @@ class EDGE:
             # Create CSV file with headers
             with open(metrics_file, 'w', newline='') as f:
                 writer = csv.writer(f)
-                writer.writerow(['Epoch', 'Timestamp', 'Total_Loss', 'Train_Loss', 
-                                'V_Loss', 'FK_Loss', 'Foot_Loss', 'FCS_Train_Loss', 'FCS_Score', 'PFC_Score', 'Type'])
+                writer.writerow(['Epoch', 'Timestamp', 'Total_Loss', 'Train_Loss',
+                                'V_Loss', 'FK_Loss', 'Foot_Loss', 'FCS_Train_Loss', 'Type'])
             
             # Initialize JSON metrics list
             all_metrics = []
@@ -508,22 +515,10 @@ class EDGE:
             for step, (x, cond, filename, wavnames) in enumerate(
                 load_loop(train_data_loader)
             ):
-                total_loss, (loss, v_loss, fk_loss, foot_loss) = self.diffusion(
+                total_loss, (loss, v_loss, fk_loss, foot_loss, fcs_loss) = self.diffusion(
                     x, cond, t_override=None
                 )
-                
-                # Add FCS loss if predictor is available
-                # Apply to every Nth batch to balance compute cost
-                if self.fcs_predictor is not None and step % opt.fcs_regularize_every == 0:
-                    # Unnormalize x to get real-world units for FCS
-                    x_unnorm = self.normalizer.unnormalize(x)
-                    fcs_loss, mean_fcs = self.compute_fcs_loss_with_predictor(x_unnorm, cond)
-                    total_loss = total_loss + self.fcs_loss_weight * fcs_loss
-                    
-                    if self.accelerator.is_main_process:
-                        avg_fcs_loss += mean_fcs
-                        fcs_steps += 1
-                
+
                 self.optim.zero_grad()
                 self.accelerator.backward(total_loss)
                 self.optim.step()
@@ -534,57 +529,13 @@ class EDGE:
                     avg_vloss += v_loss.detach().cpu().numpy()
                     avg_fkloss += fk_loss.detach().cpu().numpy()
                     avg_footloss += foot_loss.detach().cpu().numpy()
+                    if fcs_loss.item() > 0:
+                        avg_fcs_loss += fcs_loss.detach().cpu().numpy()
+                        fcs_steps += 1
                     if step % opt.ema_interval == 0:
                         self.diffusion.ema.update_model_average(
                             self.diffusion.master_model, self.diffusion.model
                         )
-            
-            # Periodic physics evaluation (if enabled)
-            # Note: This monitors physics quality but doesn't apply gradients
-            # Full backprop through DDIM sampling is not feasible
-            if (self.fcs_loss_weight > 0 and 
-                epoch % opt.fcs_regularize_every == 0 and
-                self.accelerator.is_main_process):
-                
-                print(f"\n[Physics] Monitoring physics quality at epoch {epoch}...")
-                
-                # Get a batch for evaluation
-                eval_iter = iter(train_data_loader)
-                x_eval, cond_eval, _, _ = next(eval_iter)
-                
-                try:
-                    # Compute physics metrics (no gradient)
-                    self.eval()
-                    with torch.no_grad():
-                        physics_penalty, penalty_stats = self.compute_physics_penalty(
-                            cond_eval, 
-                            num_samples=opt.fcs_num_samples
-                        )
-                    
-                    # Log physics penalties
-                    print(f"[Physics] Metrics - "
-                          f"Ground: {penalty_stats.get('ground_penalty', 0):.4f}, "
-                          f"Skating: {penalty_stats.get('skating_penalty', 0):.4f}, "
-                          f"Accel: {penalty_stats.get('accel_penalty', 0):.4f}, "
-                          f"Total: {penalty_stats.get('total_penalty', 0):.4f}")
-                    
-                    # Log to wandb if available
-                    if wandb.run is not None:
-                        wandb.log({
-                            'physics/ground_penalty': penalty_stats.get('ground_penalty', 0),
-                            'physics/skating_penalty': penalty_stats.get('skating_penalty', 0),  
-                            'physics/accel_penalty': penalty_stats.get('accel_penalty', 0),
-                            'physics/total_penalty': penalty_stats.get('total_penalty', 0),
-                            'epoch': epoch
-                        })
-                    
-                    self.train()  # back to train mode
-                    
-                except Exception as e:
-                    print(f"[Physics] Error during monitoring: {e}")
-                    import traceback
-                    traceback.print_exc()
-                    self.train()
             
             # Print progress every 50 epochs
             if self.accelerator.is_main_process and (epoch % 50 == 0):
@@ -618,10 +569,10 @@ class EDGE:
                 with open(metrics_file, 'a', newline='') as f:
                     writer = csv.writer(f)
                     writer.writerow([epoch, timestamp, f"{total:.6f}", f"{temp_avg_loss:.6f}",
-                                   f"{temp_avg_vloss:.6f}", f"{temp_avg_fkloss:.6f}", 
+                                   f"{temp_avg_vloss:.6f}", f"{temp_avg_fkloss:.6f}",
                                    f"{temp_avg_footloss:.6f}", f"{temp_avg_fcs:.6f}" if fcs_steps > 0 else "N/A",
-                                   "N/A", "N/A", "progress"])
-                
+                                   "progress"])
+
                 all_metrics.append({
                     'epoch': epoch,
                     'timestamp': timestamp,
@@ -631,8 +582,6 @@ class EDGE:
                     'fk_loss': float(temp_avg_fkloss),
                     'foot_loss': float(temp_avg_footloss),
                     'fcs_train_loss': float(temp_avg_fcs) if fcs_steps > 0 else None,
-                    'fcs_score': None,
-                    'pfc_score': None,
                     'type': 'progress'
                 })
             
@@ -649,25 +598,6 @@ class EDGE:
                     avg_fkloss /= len(train_data_loader)
                     avg_footloss /= len(train_data_loader)
                     
-                    # Evaluate FCS and PFC on validation samples
-                    physics_result = {'mean_fcs_score': 0.0, 'mean_pfc_score': 0.0}
-                    if self.use_fcs:
-                        try:
-                            # Use test data for physics evaluation
-                            (_, val_cond, _, _) = next(iter(test_data_loader))
-                            val_cond = val_cond.to(self.accelerator.device)
-                            print("[Physics] Evaluating FCS and PFC quality...")
-                            physics_result = self.evaluate_fcs_on_batch(val_cond, num_samples=4)
-                            print(f"[Physics] FCS: {physics_result['mean_fcs_score']:.4f}, "
-                                  f"PFC: {physics_result['mean_pfc_score']:.4f} "
-                                  f"({physics_result['num_evaluated']} samples evaluated)")
-                        except Exception as e:
-                            import traceback
-                            print(f"[Physics] Evaluation failed: {type(e).__name__}: {e}")
-                            print(traceback.format_exc())
-                    else:
-                        print("[Physics] Skipped - evaluator not initialized")
-                    
                     # Print detailed checkpoint summary
                     total = avg_loss + avg_vloss + avg_fkloss + avg_footloss
                     print(f"\n{'#'*70}")
@@ -677,23 +607,22 @@ class EDGE:
                     print(f"  ├─ Train Loss:   {avg_loss:.6f}")
                     print(f"  ├─ V Loss:       {avg_vloss:.6f}")
                     print(f"  ├─ FK Loss:      {avg_fkloss:.6f}")
-                    print(f"  ├─ Foot Loss:    {avg_footloss:.6f}")
-                    print(f"  ├─ FCS Score:    {physics_result['mean_fcs_score']:.6f}")
-                    print(f"  └─ PFC Score:    {physics_result['mean_pfc_score']:.6f}")
+                    print(f"  └─ Foot Loss:    {avg_footloss:.6f}")
+                    if fcs_steps > 0:
+                        print(f"  FCS Train Loss:  {avg_fcs_loss / fcs_steps:.6f}")
                     print(f"  Model saved to:  weights/train-{epoch}.pt")
                     print(f"{'#'*70}\n")
-                    
+
                     # Save checkpoint metrics to files
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                     temp_avg_fcs = avg_fcs_loss / fcs_steps if fcs_steps > 0 else 0.0
                     with open(metrics_file, 'a', newline='') as f:
                         writer = csv.writer(f)
                         writer.writerow([epoch, timestamp, f"{total:.6f}", f"{avg_loss:.6f}",
-                                       f"{avg_vloss:.6f}", f"{avg_fkloss:.6f}", 
+                                       f"{avg_vloss:.6f}", f"{avg_fkloss:.6f}",
                                        f"{avg_footloss:.6f}", f"{temp_avg_fcs:.6f}" if fcs_steps > 0 else "N/A",
-                                       f"{physics_result['mean_fcs_score']:.6f}",
-                                       f"{physics_result['mean_pfc_score']:.6f}", "checkpoint"])
-                    
+                                       "checkpoint"])
+
                     all_metrics.append({
                         'epoch': epoch,
                         'timestamp': timestamp,
@@ -703,8 +632,6 @@ class EDGE:
                         'fk_loss': float(avg_fkloss),
                         'foot_loss': float(avg_footloss),
                         'fcs_train_loss': float(temp_avg_fcs) if fcs_steps > 0 else None,
-                        'fcs_score': float(physics_result['mean_fcs_score']),
-                        'pfc_score': float(physics_result['mean_pfc_score']),
                         'type': 'checkpoint'
                     })
                     
@@ -723,9 +650,9 @@ class EDGE:
                         "V Loss": avg_vloss,
                         "FK Loss": avg_fkloss,
                         "Foot Loss": avg_footloss,
-                        "FCS Score": physics_result['mean_fcs_score'],
-                        "PFC Score": physics_result['mean_pfc_score'],
                     }
+                    if fcs_steps > 0:
+                        log_dict["FCS Train Loss"] = avg_fcs_loss / fcs_steps
                     wandb.log(log_dict)
                     ckpt = {
                         "ema_state_dict": self.diffusion.master_model.state_dict(),
@@ -736,22 +663,6 @@ class EDGE:
                         "normalizer": self.normalizer,
                     }
                     torch.save(ckpt, os.path.join(wdir, f"train-{epoch}.pt"))
-                    # generate a sample
-                    render_count = 2
-                    shape = (render_count, self.horizon, self.repr_dim)
-                    print("Generating Sample")
-                    # draw a music from the test dataset
-                    (x, cond, filename, wavnames) = next(iter(test_data_loader))
-                    cond = cond.to(self.accelerator.device)
-                    self.diffusion.render_sample(
-                        shape,
-                        cond[:render_count],
-                        self.normalizer,
-                        epoch,
-                        os.path.join(opt.render_dir, "train_" + opt.exp_name),
-                        name=wavnames[:render_count],
-                        sound=True,
-                    )
                     print(f"[MODEL SAVED at Epoch {epoch}]")
         
         # Training completion summary

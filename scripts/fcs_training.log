@@ -1,0 +1,47 @@
+[Sun Mar 29 20:58:09 UTC 2026] Waiting 3 hours for baseline training to finish...
+[Sun Mar 29 23:58:09 UTC 2026] Starting FCS training...
+[Sun Mar 29 23:58:09 UTC 2026] WARNING: Baseline training still running. Waiting for it to finish...
+[Mon Mar 30 01:13:09 UTC 2026] Baseline training finished. Proceeding.
+Model has 49464471 parameters
+============================================================
+✓ FCS evaluator initialized for physics monitoring
+✓ PFC metric available for comparison
+✓ FCS loss enabled with weight: 0.1
+============================================================
+============================================================
+✓ FCS predictor loaded from models/fcs_predictor.pt
+✓ Differentiable physics loss enabled (weight=0.1)
+============================================================
+Traceback (most recent call last):
+  File "/workspace/Dissertation/train.py", line 16, in <module>
+    train(opt)
+  File "/workspace/Dissertation/train.py", line 11, in train
+    model.train_loop(opt)
+  File "/workspace/Dissertation/EDGE.py", line 462, in train_loop
+    wandb.init(project=opt.wandb_pj_name, name=opt.exp_name)
+  File "/venv/edge2/lib/python3.9/site-packages/wandb/sdk/wandb_init.py", line 1595, in init
+    get_sentry().reraise(e)
+  File "/venv/edge2/lib/python3.9/site-packages/wandb/analytics/sentry.py", line 190, in reraise
+    raise exc.with_traceback(tb)
+  File "/venv/edge2/lib/python3.9/site-packages/wandb/sdk/wandb_init.py", line 1516, in init
+    wi.maybe_login(init_settings)
+  File "/venv/edge2/lib/python3.9/site-packages/wandb/sdk/wandb_init.py", line 193, in maybe_login
+    wandb_login._login(
+  File "/venv/edge2/lib/python3.9/site-packages/wandb/sdk/wandb_login.py", line 190, in _login
+    auth = _find_or_prompt_for_key(
+  File "/venv/edge2/lib/python3.9/site-packages/wandb/sdk/wandb_login.py", line 266, in _find_or_prompt_for_key
+    auth = wbauth.authenticate_session(
+  File "/venv/edge2/lib/python3.9/site-packages/wandb/sdk/lib/wbauth/authenticate.py", line 139, in authenticate_session
+    raise UsageError(
+wandb.errors.errors.UsageError: No API key configured. Use `wandb login` to log in.
+Traceback (most recent call last):
+  File "/venv/edge2/bin/accelerate", line 7, in <module>
+    sys.exit(main())
+  File "/venv/edge2/lib/python3.9/site-packages/accelerate/commands/accelerate_cli.py", line 50, in main
+    args.func(args)
+  File "/venv/edge2/lib/python3.9/site-packages/accelerate/commands/launch.py", line 1235, in launch_command
+    simple_launcher(args)
+  File "/venv/edge2/lib/python3.9/site-packages/accelerate/commands/launch.py", line 823, in simple_launcher
+    raise subprocess.CalledProcessError(returncode=process.returncode, cmd=cmd)
+subprocess.CalledProcessError: Command '['/venv/edge2/bin/python3.9', 'train.py', '--project', 'runs/fcs', '--exp_name', 'physics_v1', '--batch_size', '128', '--epochs', '2000', '--save_interval', '100', '--feature_type', 'jukebox', '--fcs_predictor_path', 'models/fcs_predictor.pt', '--fcs_loss_weight', '0.1']' returned non-zero exit status 1.
+[Mon Mar 30 01:13:24 UTC 2026] FCS training completed.

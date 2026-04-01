@@ -23,6 +23,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
+import torch.nn.functional as F
 from tqdm import tqdm
 
 from dataset.dance_dataset import AISTPPDataset
@@ -50,7 +51,7 @@ def load_model(checkpoint_path, feature_type="jukebox", device="cuda"):
         num_heads=8,
         dropout=0.1,
         cond_feature_dim=feature_dim,
-        activation=None,
+        activation=F.gelu,
     )
 
     smpl = SMPLSkeleton(device=device)

@@ -68,6 +68,10 @@ class GaussianDiffusion(nn.Module):
         # make a SMPL instance for FK module
         self.smpl = smpl
 
+        # FCS predictor for physics-aware training (set externally)
+        self.fcs_predictor = None
+        self.fcs_loss_weight = 0.0
+
         betas = torch.Tensor(
             make_beta_schedule(schedule=schedule, n_timestep=n_timestep)
         )
@@ -511,11 +515,18 @@ class GaussianDiffusion(nn.Module):
         )
         foot_loss = reduce(foot_loss, "b ... -> b (...)", "mean")
 
+        # FCS predictor loss on model's predicted joint positions
+        fcs_loss = torch.tensor(0.0, device=model_xp.device)
+        if self.fcs_predictor is not None and self.fcs_loss_weight > 0:
+            fcs_pred = self.fcs_predictor(model_xp)  # (batch,)
+            fcs_loss = fcs_pred.mean()
+
         losses = (
             0.636 * loss.mean(),
             2.964 * v_loss.mean(),
             0.646 * fk_loss.mean(),
             10.942 * foot_loss.mean(),
+            self.fcs_loss_weight * fcs_loss,
         )
         return sum(losses), losses
 
