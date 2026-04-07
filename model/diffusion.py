@@ -19,6 +19,39 @@ from vis import skeleton_render
 
 from .utils import extract, make_beta_schedule
 
+# Per-joint mass fractions derived from SEGMENT_JOINT_MAPPING (Winter, 2009).
+# Matches eval_fcs.py and fcs_predictor.py: each segment's mass is split
+# evenly across its constituent joints, then accumulated per joint.
+# Trunk (49.7%) across 5 joints (0,3,6,9,12); collars (13,14) get 0.
+# Total sums to 1.0.
+_SMPL_JOINT_MASSES = [
+    0.09940,  # 0:  Pelvis      (trunk)
+    0.05000,  # 1:  L_Hip       (thigh_l)
+    0.05000,  # 2:  R_Hip       (thigh_r)
+    0.09940,  # 3:  Spine1      (trunk)
+    0.07325,  # 4:  L_Knee      (thigh_l + shank_l)
+    0.07325,  # 5:  R_Knee      (thigh_r + shank_r)
+    0.09940,  # 6:  Spine2      (trunk)
+    0.03050,  # 7:  L_Ankle     (shank_l + foot_l)
+    0.03050,  # 8:  R_Ankle     (shank_r + foot_r)
+    0.09940,  # 9:  Spine3      (trunk)
+    0.00725,  # 10: L_Toe       (foot_l)
+    0.00725,  # 11: R_Toe       (foot_r)
+    0.09940,  # 12: Neck        (trunk)
+    0.00000,  # 13: L_Collar    (not in segment mapping)
+    0.00000,  # 14: R_Collar    (not in segment mapping)
+    0.08100,  # 15: Head
+    0.01400,  # 16: L_Shoulder  (upper_arm_l)
+    0.01400,  # 17: R_Shoulder  (upper_arm_r)
+    0.02200,  # 18: L_Elbow     (upper_arm_l + forearm_l)
+    0.02200,  # 19: R_Elbow     (upper_arm_r + forearm_r)
+    0.00800,  # 20: L_Wrist     (forearm_l)
+    0.00800,  # 21: R_Wrist     (forearm_r)
+    0.00600,  # 22: L_Palm      (hand_l)
+    0.00600,  # 23: R_Palm      (hand_r)
+]
+
+
 def identity(t, *args, **kwargs):
     return t
 
@@ -55,6 +88,9 @@ class GaussianDiffusion(nn.Module):
         guidance_weight=3,
         use_p2=False,
         cond_drop_prob=0.2,
+        com_loss_weight=0.0,
+        bilateral_loss_weight=0.0,
+        foot_height_loss_weight=0.0,
     ):
         super().__init__()
         self.horizon = horizon
@@ -64,6 +100,13 @@ class GaussianDiffusion(nn.Module):
         self.master_model = copy.deepcopy(self.model)
 
         self.cond_drop_prob = cond_drop_prob
+        self.com_loss_weight = com_loss_weight
+        self.bilateral_loss_weight = bilateral_loss_weight
+        self.foot_height_loss_weight = foot_height_loss_weight
+        self.register_buffer(
+            "_joint_masses",
+            torch.tensor(_SMPL_JOINT_MASSES, dtype=torch.float32),
+        )
 
         # make a SMPL instance for FK module
         self.smpl = smpl
@@ -521,12 +564,72 @@ class GaussianDiffusion(nn.Module):
             fcs_pred = self.fcs_predictor(model_xp)  # (batch,)
             fcs_loss = fcs_pred.mean()
 
+        # CoM / Base-of-Support balance loss
+        # Penalises horizontal CoM being far from the mean position of
+        # active foot contacts. Forces weight shift over standing foot.
+        # Only applied on low-acceleration frames (static/slow poses) to
+        # avoid suppressing dynamic dance moves (jumps, spins, lunges).
+        if self.com_loss_weight > 0:
+            masses = self._joint_masses.view(1, 1, 24, 1)            # (1,1,24,1)
+            com = (model_xp * masses).sum(dim=2)                      # (B,S,3)
+            com_h = com[:, :, :2]                                     # XY plane (B,S,2)
+            # Mask out high-acceleration frames where CoM outside support
+            # base is expected (jumps, explosive moves, weight transfers)
+            com_acc = torch.norm(
+                com[:, 2:, :] - 2 * com[:, 1:-1, :] + com[:, :-2, :], dim=-1  # (B,S-2)
+            )
+            # Pad to match sequence length (first and last frames get 0 acc)
+            com_acc = F.pad(com_acc, (1, 1), value=0.0)              # (B,S)
+            is_static = (com_acc < 0.01).float()                      # (B,S)
+            # Detach foot positions for support center — prevents circular
+            # gradient loop (moving feet changes target, which moves feet)
+            foot_h = model_xp[:, :, foot_idx, :2].detach()           # (B,S,4,2)
+            contact_w = (model_contact > 0.95).float()                # (B,S,4)
+            denom = contact_w.sum(dim=-1, keepdim=True).clamp(min=1.) # (B,S,1)
+            support_center = (foot_h * contact_w.unsqueeze(-1)).sum(dim=2) / denom  # (B,S,2)
+            has_contact = (contact_w.sum(dim=-1) > 0).float()         # (B,S)
+            com_dist_sq = ((com_h - support_center) ** 2).sum(dim=-1)  # (B,S)
+            com_loss = (com_dist_sq * has_contact * is_static).mean()
+        else:
+            com_loss = torch.tensor(0.0, device=model_xp.device)
+
+        # Bilateral foot exclusivity loss
+        # Penalises both feet moving fast simultaneously (product of
+        # left-foot and right-foot velocities). High product = airborne sliding.
+        if self.bilateral_loss_weight > 0:
+            left_v = torch.norm(
+                model_feet[:, 1:, [0, 2], :] - model_feet[:, :-1, [0, 2], :], dim=-1
+            ).mean(dim=-1)   # (B,S-1)
+            right_v = torch.norm(
+                model_feet[:, 1:, [1, 3], :] - model_feet[:, :-1, [1, 3], :], dim=-1
+            ).mean(dim=-1)   # (B,S-1)
+            # Only penalize when at least one foot is in contact — allow
+            # legitimate airborne phases (jumps, hops, spins)
+            any_contact = (model_contact[:, 1:] > 0.95).any(dim=-1).float()  # (B,S-1)
+            bilateral_loss = (left_v * right_v * any_contact).mean()
+        else:
+            bilateral_loss = torch.tensor(0.0, device=model_xp.device)
+
+        # Foot height during contact loss
+        # Penalises feet hovering above ground while model predicts contact.
+        # Ground reference = per-sequence min foot height, detached.
+        if self.foot_height_loss_weight > 0:
+            min_h = model_feet[:, :, :, 2].min(dim=1, keepdim=True)[0].detach()  # (B,1,4)
+            adj_h = model_feet[:, :, :, 2] - min_h                   # (B,S,4)
+            contact_w2 = (model_contact > 0.95).float()
+            height_loss = (adj_h * contact_w2).mean()
+        else:
+            height_loss = torch.tensor(0.0, device=model_xp.device)
+
         losses = (
             0.636 * loss.mean(),
             2.964 * v_loss.mean(),
             0.646 * fk_loss.mean(),
             10.942 * foot_loss.mean(),
             self.fcs_loss_weight * fcs_loss,
+            self.com_loss_weight * com_loss,
+            self.bilateral_loss_weight * bilateral_loss,
+            self.foot_height_loss_weight * height_loss,
         )
         return sum(losses), losses
 

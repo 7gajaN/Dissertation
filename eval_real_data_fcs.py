@@ -10,7 +10,7 @@ from pathlib import Path
 from tqdm import tqdm
 
 from dataset.dance_dataset import AISTPPDataset
-from eval.eval_fcs import ForceConsistencyEvaluator
+from eval.eval_fcs import ForceConsistencyEvaluator, calculate_pfc_score
 from vis import SMPLSkeleton
 
 
@@ -64,8 +64,9 @@ def evaluate_dataset_fcs(data_path, split='test', max_samples=100):
     fcs_evaluator = ForceConsistencyEvaluator(fps=30)
     smpl = SMPLSkeleton()
     
-    # Evaluate FCS on samples
+    # Evaluate FCS and PFC on samples
     fcs_scores = []
+    pfc_scores = []
     num_samples = min(max_samples, len(dataset))
     
     print(f"Evaluating FCS on {num_samples} sequences...")
@@ -104,6 +105,11 @@ def evaluate_dataset_fcs(data_path, split='test', max_samples=100):
             # Evaluate FCS
             result = fcs_evaluator.evaluate_motion(joint_positions_np)
             fcs_scores.append(result['fcs_score'])
+
+            # Evaluate PFC
+            pfc = calculate_pfc_score(joint_positions_np)
+            if not (np.isnan(pfc) or np.isinf(pfc)):
+                pfc_scores.append(pfc)
             
         except Exception as e:
             print(f"\nError processing sequence {idx}: {e}")
@@ -111,11 +117,12 @@ def evaluate_dataset_fcs(data_path, split='test', max_samples=100):
     
     # Compute statistics
     fcs_scores = np.array(fcs_scores)
-    
+    pfc_scores = np.array(pfc_scores)
+
     if len(fcs_scores) == 0:
         print("\nERROR: All samples failed to evaluate! Check the errors above.")
         return None
-    
+
     results = {
         'mean': np.mean(fcs_scores),
         'std': np.std(fcs_scores),
@@ -125,9 +132,13 @@ def evaluate_dataset_fcs(data_path, split='test', max_samples=100):
         'percentile_25': np.percentile(fcs_scores, 25),
         'percentile_75': np.percentile(fcs_scores, 75),
         'num_evaluated': len(fcs_scores),
-        'all_scores': fcs_scores
+        'all_scores': fcs_scores,
+        'pfc_mean': float(np.mean(pfc_scores)) if len(pfc_scores) else float('nan'),
+        'pfc_std': float(np.std(pfc_scores)) if len(pfc_scores) else float('nan'),
+        'pfc_median': float(np.median(pfc_scores)) if len(pfc_scores) else float('nan'),
+        'pfc_num_evaluated': len(pfc_scores),
     }
-    
+
     return results
 
 
@@ -168,6 +179,10 @@ def main():
     print(f"  Max:        {results['max']:.6f}")
     print(f"  25th %ile:  {results['percentile_25']:.6f}")
     print(f"  75th %ile:  {results['percentile_75']:.6f}")
+    print(f"\nPFC Score Statistics ({results['pfc_num_evaluated']} sequences):")
+    print(f"  Mean:       {results['pfc_mean']:.6f}")
+    print(f"  Std Dev:    {results['pfc_std']:.6f}")
+    print(f"  Median:     {results['pfc_median']:.6f}")
     print("=" * 70)
     
     # Save results

@@ -1,0 +1,115 @@
+======================================================================
+FCS EVALUATION - AIST++ TEST SET
+======================================================================
+Sequences evaluated: 100
+
+Statistics:
+  Mean:       0.132365
+  Std Dev:    0.209629
+  Median:     0.049905
+  Min:        0.000000
+  Max:        0.804232
+  25th %ile:  0.002185
+  75th %ile:  0.104955
+
+All scores:
+  Sequence   0: 0.125622
+  Sequence   1: 0.116490
+  Sequence   2: 0.097693
+  Sequence   3: 0.106081
+  Sequence   4: 0.099037
+  Sequence   5: 0.085388
+  Sequence   6: 0.129753
+  Sequence   7: 0.111106
+  Sequence   8: 0.108499
+  Sequence   9: 0.100469
+  Sequence  10: 0.101926
+  Sequence  11: 0.104579
+  Sequence  12: 0.120267
+  Sequence  13: 0.117303
+  Sequence  14: 0.070048
+  Sequence  15: 0.061319
+  Sequence  16: 0.087865
+  Sequence  17: 0.083893
+  Sequence  18: 0.076503
+  Sequence  19: 0.081094
+  Sequence  20: 0.083558
+  Sequence  21: 0.085390
+  Sequence  22: 0.089289
+  Sequence  23: 0.084319
+  Sequence  24: 0.080330
+  Sequence  25: 0.085358
+  Sequence  26: 0.093989
+  Sequence  27: 0.089750
+  Sequence  28: 0.000624
+  Sequence  29: 0.000624
+  Sequence  30: 0.000624
+  Sequence  31: 0.000624
+  Sequence  32: 0.000624
+  Sequence  33: 0.029742
+  Sequence  34: 0.038891
+  Sequence  35: 0.034328
+  Sequence  36: 0.034328
+  Sequence  37: 0.048328
+  Sequence  38: 0.655262
+  Sequence  39: 0.635436
+  Sequence  40: 0.661722
+  Sequence  41: 0.627914
+  Sequence  42: 0.582358
+  Sequence  43: 0.785609
+  Sequence  44: 0.743687
+  Sequence  45: 0.804232
+  Sequence  46: 0.796779
+  Sequence  47: 0.726627
+  Sequence  48: 0.000000
+  Sequence  49: 0.000000
+  Sequence  50: 0.000000
+  Sequence  51: 0.000000
+  Sequence  52: 0.000000
+  Sequence  53: 0.000000
+  Sequence  54: 0.000000
+  Sequence  55: 0.000000
+  Sequence  56: 0.000000
+  Sequence  57: 0.000000
+  Sequence  58: 0.000000
+  Sequence  59: 0.000000
+  Sequence  60: 0.000000
+  Sequence  61: 0.000000
+  Sequence  62: 0.000000
+  Sequence  63: 0.000000
+  Sequence  64: 0.012024
+  Sequence  65: 0.012024
+  Sequence  66: 0.012024
+  Sequence  67: 0.018596
+  Sequence  68: 0.018596
+  Sequence  69: 0.006572
+  Sequence  70: 0.006572
+  Sequence  71: 0.002185
+  Sequence  72: 0.002185
+  Sequence  73: 0.002185
+  Sequence  74: 0.095801
+  Sequence  75: 0.095801
+  Sequence  76: 0.082878
+  Sequence  77: 0.051482
+  Sequence  78: 0.051482
+  Sequence  79: 0.045237
+  Sequence  80: 0.031954
+  Sequence  81: 0.045999
+  Sequence  82: 0.045999
+  Sequence  83: 0.045999
+  Sequence  84: 0.032460
+  Sequence  85: 0.046495
+  Sequence  86: 0.040282
+  Sequence  87: 0.042439
+  Sequence  88: 0.038912
+  Sequence  89: 0.038912
+  Sequence  90: 0.036325
+  Sequence  91: 0.355063
+  Sequence  92: 0.456950
+  Sequence  93: 0.275760
+  Sequence  94: 0.378713
+  Sequence  95: 0.289730
+  Sequence  96: 0.327668
+  Sequence  97: 0.305879
+  Sequence  98: 0.000000
+  Sequence  99: 0.000000

@@ -94,6 +94,15 @@ See `doc/ideas.md` for the full list including: higher FCS weight experiments, c
 - `doc/training_losses.md` — All 5 current loss terms explained
 - `doc/eval_checkpoints.md` — How to evaluate saved checkpoints
 
+## Training Commands
+
+Always activate the conda env and launch with Accelerate:
+
+```bash
+conda activate edge
+accelerate launch train.py --com_loss_weight 1.0 --epochs 500 --exp_name com_test --project runs/phase4
+```
+
 ## Key Lessons (avoid repeating mistakes)
 
 1. **Check gradient flow**: When adding a new loss, verify it's computed on a tensor connected to the model weights (e.g., `model_xp`), NOT on dataset ground truth (`x`). The FCS predictor was initially run on `x` — loss appeared in logs but zero gradient reached the model.

@@ -43,6 +43,9 @@ class EDGE:
         weight_decay=0.02,
         fcs_loss_weight=0.0,
         fcs_predictor_path="",
+        com_loss_weight=0.0,
+        bilateral_loss_weight=0.0,
+        foot_height_loss_weight=0.0,
     ):
         ddp_kwargs = DistributedDataParallelKwargs(find_unused_parameters=True)
         self.accelerator = Accelerator(kwargs_handlers=[ddp_kwargs])
@@ -98,6 +101,9 @@ class EDGE:
             use_p2=False,
             cond_drop_prob=0.25,
             guidance_weight=2,
+            com_loss_weight=com_loss_weight,
+            bilateral_loss_weight=bilateral_loss_weight,
+            foot_height_loss_weight=foot_height_loss_weight,
         )
 
         print(
@@ -472,7 +478,9 @@ class EDGE:
             with open(metrics_file, 'w', newline='') as f:
                 writer = csv.writer(f)
                 writer.writerow(['Epoch', 'Timestamp', 'Total_Loss', 'Train_Loss',
-                                'V_Loss', 'FK_Loss', 'Foot_Loss', 'FCS_Train_Loss', 'Type'])
+                                'V_Loss', 'FK_Loss', 'Foot_Loss',
+                                'CoM_Loss', 'Bilateral_Loss', 'Height_Loss',
+                                'FCS_Train_Loss', 'Type'])
             
             # Initialize JSON metrics list
             all_metrics = []
@@ -495,10 +503,16 @@ class EDGE:
             print(f"  Feature Type:    {opt.feature_type}")
             print(f"  FCS Monitoring:  {self.use_fcs}")
             if self.fcs_loss_weight > 0:
-                print(f" Physics Regularization:")
+                print(f"  FCS Predictor Loss:")
                 print(f"    Weight:       {self.fcs_loss_weight}")
                 print(f"    Every:        {opt.fcs_regularize_every} epochs")
                 print(f"    Samples:      {opt.fcs_num_samples}")
+            if self.diffusion.com_loss_weight > 0:
+                print(f"  CoM Balance Loss:    weight={self.diffusion.com_loss_weight}")
+            if self.diffusion.bilateral_loss_weight > 0:
+                print(f"  Bilateral Loss:      weight={self.diffusion.bilateral_loss_weight}")
+            if self.diffusion.foot_height_loss_weight > 0:
+                print(f"  Foot Height Loss:    weight={self.diffusion.foot_height_loss_weight}")
             print(f"  Progress prints: Every 50 epochs")
             print(f"{'='*70}\n")
         
@@ -508,6 +522,9 @@ class EDGE:
             avg_fkloss = 0
             avg_footloss = 0
             avg_fcs_loss = 0
+            avg_comloss = 0
+            avg_bilateralloss = 0
+            avg_heightloss = 0
             fcs_steps = 0
             
             # train
@@ -515,7 +532,7 @@ class EDGE:
             for step, (x, cond, filename, wavnames) in enumerate(
                 load_loop(train_data_loader)
             ):
-                total_loss, (loss, v_loss, fk_loss, foot_loss, fcs_loss) = self.diffusion(
+                total_loss, (loss, v_loss, fk_loss, foot_loss, fcs_loss, com_loss, bilateral_loss, height_loss) = self.diffusion(
                     x, cond, t_override=None
                 )
 
@@ -529,6 +546,9 @@ class EDGE:
                     avg_vloss += v_loss.detach().cpu().numpy()
                     avg_fkloss += fk_loss.detach().cpu().numpy()
                     avg_footloss += foot_loss.detach().cpu().numpy()
+                    avg_comloss += com_loss.detach().cpu().numpy()
+                    avg_bilateralloss += bilateral_loss.detach().cpu().numpy()
+                    avg_heightloss += height_loss.detach().cpu().numpy()
                     if fcs_loss.item() > 0:
                         avg_fcs_loss += fcs_loss.detach().cpu().numpy()
                         fcs_steps += 1
@@ -543,34 +563,42 @@ class EDGE:
                 temp_avg_vloss = avg_vloss / len(train_data_loader)
                 temp_avg_fkloss = avg_fkloss / len(train_data_loader)
                 temp_avg_footloss = avg_footloss / len(train_data_loader)
-                total = temp_avg_loss + temp_avg_vloss + temp_avg_fkloss + temp_avg_footloss
-                
+                temp_avg_comloss = avg_comloss / len(train_data_loader)
+                temp_avg_bilateralloss = avg_bilateralloss / len(train_data_loader)
+                temp_avg_heightloss = avg_heightloss / len(train_data_loader)
+                temp_avg_fcs = avg_fcs_loss / fcs_steps if fcs_steps > 0 else 0.0
+                total = (temp_avg_loss + temp_avg_vloss + temp_avg_fkloss + temp_avg_footloss
+                         + temp_avg_comloss + temp_avg_bilateralloss + temp_avg_heightloss
+                         + temp_avg_fcs)
+
                 print(f"\n{'='*70}")
                 print(f"EPOCH {epoch}/{opt.epochs} - Training Progress")
                 print(f"{'='*70}")
                 print(f"  Total Loss:      {total:.6f}")
-                print(f"  Reconstruction:  {temp_avg_loss:.6f}")
-                print(f"  Velocity Loss:   {temp_avg_vloss:.6f}")
-                print(f"  FK Loss:         {temp_avg_fkloss:.6f}")
-                print(f"  Foot Loss:       {temp_avg_footloss:.6f}")
-                if fcs_steps > 0:
-                    temp_avg_fcs = avg_fcs_loss / fcs_steps
-                    print(f"  FCS Loss (pred): {temp_avg_fcs:.6f}")
-                print(f"{'='*70}\n")
                 print(f"  ├─ Train Loss:   {temp_avg_loss:.6f}  ({temp_avg_loss/total*100:5.1f}%)")
                 print(f"  ├─ V Loss:       {temp_avg_vloss:.6f}  ({temp_avg_vloss/total*100:5.1f}%)")
                 print(f"  ├─ FK Loss:      {temp_avg_fkloss:.6f}  ({temp_avg_fkloss/total*100:5.1f}%)")
-                print(f"  └─ Foot Loss:    {temp_avg_footloss:.6f}  ({temp_avg_footloss/total*100:5.1f}%)")
+                print(f"  ├─ Foot Loss:    {temp_avg_footloss:.6f}  ({temp_avg_footloss/total*100:5.1f}%)")
+                if self.diffusion.com_loss_weight > 0:
+                    print(f"  ├─ CoM Loss:     {temp_avg_comloss:.6f}  ({temp_avg_comloss/total*100:5.1f}%)")
+                if self.diffusion.bilateral_loss_weight > 0:
+                    print(f"  ├─ Bilateral:    {temp_avg_bilateralloss:.6f}  ({temp_avg_bilateralloss/total*100:5.1f}%)")
+                if self.diffusion.foot_height_loss_weight > 0:
+                    print(f"  ├─ Height Loss:  {temp_avg_heightloss:.6f}  ({temp_avg_heightloss/total*100:5.1f}%)")
+                if fcs_steps > 0:
+                    print(f"  └─ FCS (pred):   {temp_avg_fcs:.6f}  ({temp_avg_fcs/total*100:5.1f}%)")
                 print(f"{'='*70}\n")
-                
+
                 # Save progress metrics to files
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                temp_avg_fcs = avg_fcs_loss / fcs_steps if fcs_steps > 0 else 0.0
                 with open(metrics_file, 'a', newline='') as f:
                     writer = csv.writer(f)
                     writer.writerow([epoch, timestamp, f"{total:.6f}", f"{temp_avg_loss:.6f}",
                                    f"{temp_avg_vloss:.6f}", f"{temp_avg_fkloss:.6f}",
-                                   f"{temp_avg_footloss:.6f}", f"{temp_avg_fcs:.6f}" if fcs_steps > 0 else "N/A",
+                                   f"{temp_avg_footloss:.6f}",
+                                   f"{temp_avg_comloss:.6f}", f"{temp_avg_bilateralloss:.6f}",
+                                   f"{temp_avg_heightloss:.6f}",
+                                   f"{temp_avg_fcs:.6f}" if fcs_steps > 0 else "N/A",
                                    "progress"])
 
                 all_metrics.append({
@@ -581,6 +609,9 @@ class EDGE:
                     'v_loss': float(temp_avg_vloss),
                     'fk_loss': float(temp_avg_fkloss),
                     'foot_loss': float(temp_avg_footloss),
+                    'com_loss': float(temp_avg_comloss),
+                    'bilateral_loss': float(temp_avg_bilateralloss),
+                    'height_loss': float(temp_avg_heightloss),
                     'fcs_train_loss': float(temp_avg_fcs) if fcs_steps > 0 else None,
                     'type': 'progress'
                 })
@@ -597,9 +628,15 @@ class EDGE:
                     avg_vloss /= len(train_data_loader)
                     avg_fkloss /= len(train_data_loader)
                     avg_footloss /= len(train_data_loader)
-                    
+                    avg_comloss /= len(train_data_loader)
+                    avg_bilateralloss /= len(train_data_loader)
+                    avg_heightloss /= len(train_data_loader)
+
                     # Print detailed checkpoint summary
-                    total = avg_loss + avg_vloss + avg_fkloss + avg_footloss
+                    temp_avg_fcs = avg_fcs_loss / fcs_steps if fcs_steps > 0 else 0.0
+                    total = (avg_loss + avg_vloss + avg_fkloss + avg_footloss
+                             + avg_comloss + avg_bilateralloss + avg_heightloss
+                             + temp_avg_fcs)
                     print(f"\n{'#'*70}")
                     print(f"# CHECKPOINT - Epoch {epoch}/{opt.epochs}")
                     print(f"{'#'*70}")
@@ -607,20 +644,28 @@ class EDGE:
                     print(f"  ├─ Train Loss:   {avg_loss:.6f}")
                     print(f"  ├─ V Loss:       {avg_vloss:.6f}")
                     print(f"  ├─ FK Loss:      {avg_fkloss:.6f}")
-                    print(f"  └─ Foot Loss:    {avg_footloss:.6f}")
+                    print(f"  ├─ Foot Loss:    {avg_footloss:.6f}")
+                    if self.diffusion.com_loss_weight > 0:
+                        print(f"  ├─ CoM Loss:     {avg_comloss:.6f}")
+                    if self.diffusion.bilateral_loss_weight > 0:
+                        print(f"  ├─ Bilateral:    {avg_bilateralloss:.6f}")
+                    if self.diffusion.foot_height_loss_weight > 0:
+                        print(f"  ├─ Height Loss:  {avg_heightloss:.6f}")
                     if fcs_steps > 0:
-                        print(f"  FCS Train Loss:  {avg_fcs_loss / fcs_steps:.6f}")
+                        print(f"  └─ FCS Train:    {temp_avg_fcs:.6f}")
                     print(f"  Model saved to:  weights/train-{epoch}.pt")
                     print(f"{'#'*70}\n")
 
                     # Save checkpoint metrics to files
                     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                    temp_avg_fcs = avg_fcs_loss / fcs_steps if fcs_steps > 0 else 0.0
                     with open(metrics_file, 'a', newline='') as f:
                         writer = csv.writer(f)
                         writer.writerow([epoch, timestamp, f"{total:.6f}", f"{avg_loss:.6f}",
                                        f"{avg_vloss:.6f}", f"{avg_fkloss:.6f}",
-                                       f"{avg_footloss:.6f}", f"{temp_avg_fcs:.6f}" if fcs_steps > 0 else "N/A",
+                                       f"{avg_footloss:.6f}",
+                                       f"{avg_comloss:.6f}", f"{avg_bilateralloss:.6f}",
+                                       f"{avg_heightloss:.6f}",
+                                       f"{temp_avg_fcs:.6f}" if fcs_steps > 0 else "N/A",
                                        "checkpoint"])
 
                     all_metrics.append({
@@ -631,6 +676,9 @@ class EDGE:
                         'v_loss': float(avg_vloss),
                         'fk_loss': float(avg_fkloss),
                         'foot_loss': float(avg_footloss),
+                        'com_loss': float(avg_comloss),
+                        'bilateral_loss': float(avg_bilateralloss),
+                        'height_loss': float(avg_heightloss),
                         'fcs_train_loss': float(temp_avg_fcs) if fcs_steps > 0 else None,
                         'type': 'checkpoint'
                     })
@@ -650,6 +698,9 @@ class EDGE:
                         "V Loss": avg_vloss,
                         "FK Loss": avg_fkloss,
                         "Foot Loss": avg_footloss,
+                        "CoM Loss": avg_comloss,
+                        "Bilateral Loss": avg_bilateralloss,
+                        "Height Loss": avg_heightloss,
                     }
                     if fcs_steps > 0:
                         log_dict["FCS Train Loss"] = avg_fcs_loss / fcs_steps
