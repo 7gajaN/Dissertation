@@ -6,14 +6,22 @@ This is an extension of the EDGE (Editable Dance GEneration) CVPR 2023 paper. Th
 
 **Model**: Diffusion transformer that denoises 151D motion representations (24 SMPL joints × 6D rotations + root position + foot contacts) conditioned on 4800D Jukebox music features. Trained on AIST++ dataset (600 dance clips).
 
-## Current State: Phase 3 Complete
+## Current State: Phase 4 Complete
 
 ### What exists
 
-- **Baseline model** trained to 2000 epochs (`runs/baseline/no_fcs/`) — standard EDGE, no physics loss
-- **Physics-trained model** (`runs/fcs/physics_w12/`) — with FCS predictor loss (weight=0.12), 3.5× better FCS scores
+- **Baseline model** trained to 2000 epochs (`runs/baseline/no_fcs/`) — standard EDGE, no physics loss. FCS@2000 = 0.156, PFC@2000 = 1.204.
+- **Phase 3 FCS predictor model** (`runs/fcs/physics_w12/`) — FCS predictor loss at weight 0.12. FCS@2000 = 0.047, PFC@2000 = 0.907.
+- **Phase 4 combined models** in `runs/phase4/`:
+  - `fcs_com_combined` — FCS w=0.12 + masked CoM w=0.05
+  - `fcs_w1` — FCS predictor at higher weight 1.0 alone
+  - `fcs_com_bilateral` — **best FCS** (0.013), FCS w=0.12 + CoM w=0.05 + Bilateral w=5.0
+  - `fcs1_com_bilateral` — **best balance** (FCS 0.018, PFC 0.858), FCS w=1.0 + CoM w=0.05 + Bilateral w=5.0
+  - `fcs1_com_bilat2` — looser-legs variant, FCS w=1.0 + CoM w=0.05 + Bilateral w=2.0 (FCS 0.028, PFC 0.936). Worse on metrics than the bilateral=5 sibling but trades physics for visible leg expressiveness — judge from renders.
 - **FCS predictor network** (`models/fcs_predictor.pt`) — learned physics proxy, correlation 0.986 with ground-truth FCS
-- **Evaluation results** — 200-sample eval at every checkpoint for both models in `runs/*/eval_results.json`
+- **Real mocap baseline** — FCS 0.132, PFC 2.180 (from `eval_real_data_fcs.py` on 100 AIST++ test sequences). Best Phase 4 model is 10× better than real mocap on FCS, 2.5× better on PFC.
+- **Evaluation results** in each run's `eval_results.json` (50 samples per checkpoint)
+- **Side-by-side comparison renders** in `renders/comparison/` (baseline vs best FCS vs best balance)
 
 ### Key files
 
@@ -34,15 +42,20 @@ This is an extension of the EDGE (Editable Dance GEneration) CVPR 2023 paper. Th
 
 ```python
 losses = (
-    0.636 * reconstruction,    # L2 on rotations/positions
-    2.964 * velocity,          # L2 on temporal derivatives
-    0.646 * fk,                # L2 on FK joint positions (model_xp)
-    10.942 * foot_contact,     # Penalize sliding when contact predicted
-    weight * fcs_predictor,    # Learned physics score on model_xp
+    0.636 * reconstruction,                  # L2 on rotations/positions
+    2.964 * velocity,                        # L2 on temporal derivatives
+    0.646 * fk,                              # L2 on FK joint positions (model_xp)
+    10.942 * foot_contact,                   # Penalize sliding when contact predicted
+    fcs_loss_weight * fcs_predictor,         # Learned physics score on model_xp
+    com_loss_weight * com_balance,           # Phase 4: CoM over support, masked by acceleration
+    bilateral_loss_weight * bilateral,       # Phase 4: bilateral foot exclusivity, masked by contact
+    foot_height_loss_weight * foot_height,   # Phase 4: feet at ground during predicted contact
 )
 ```
 
-All losses operate on the model's **predicted** clean motion (not the noisy input). `model_xp` = FK joint positions from predicted rotations — this is the tensor with gradient path to model weights, used by FK loss and FCS loss.
+All losses operate on the model's **predicted** clean motion (not the noisy input). `model_xp` = FK joint positions from predicted rotations — this is the tensor with gradient path to model weights, used by FK, FCS, CoM, bilateral and height losses.
+
+The 3 Phase 4 losses default to weight 0.0 (disabled). Note: foot height loss did not converge at any tested weight and is currently unused. The CoM loss requires the acceleration mask (frames with `com_acc < 0.01`) to avoid suppressing dynamic dance moves.
 
 ### Training infrastructure
 
@@ -50,48 +63,39 @@ All losses operate on the model's **predicted** clean motion (not the noisy inpu
 - Checkpoints saved every 100 epochs to `runs/<exp>/weights/train-<epoch>.pt`
 - Metrics logged to CSV + JSON in run directory
 
-## Phase 4: Next Steps
+## Phase 4 Result Summary
 
-**Read `doc/ideas.md` for the full plan.** The priority items are:
+| Model | FCS | PFC | vs Real FCS | vs Real PFC |
+|-------|-----|-----|-------------|-------------|
+| Real mocap (ceiling) | 0.132 | 2.180 | 1.0× | 1.0× |
+| Baseline (no physics) | 0.156 | 1.204 | 1.18× worse | 1.81× better |
+| FCS predictor w=0.12 (Phase 3) | 0.047 | 0.907 | 2.81× better | 2.40× better |
+| FCS w=1.0 | 0.019 | 1.152 | 6.95× better | 1.89× better |
+| **FCS w=0.12 + CoM + Bilateral=5** (best FCS) | **0.013** | 1.040 | **10.2× better** | 2.10× better |
+| **FCS w=1.0 + CoM + Bilateral=5** (best balance) | 0.018 | **0.858** | 7.33× better | **2.54× better** |
+| FCS w=1.0 + CoM + Bilateral=2 (looser legs) | 0.028 | 0.936 | 4.71× better | 2.33× better |
 
-### Priority 1: Reintegrate Phase 2 Physics Losses
+Both best models surpass real mocap on both metrics. There is a stability vs expressiveness trade-off — physics models are visibly more stable but some larger expressive moves get dampened.
 
-The `origin/phase2` branch (commits `6fd5e84`, `7ec7577`) added three explicit physics losses to `p_losses` that were never merged into the main line. The goal is to combine them with the FCS predictor loss.
+Full narrative in `doc/phase4_evolution.md`.
 
-**Three losses to add:**
+## Phase 5 (potential future work)
 
-1. **CoM Balance Loss** — Penalizes center of mass (horizontal) being far from the support center (mean position of contact feet). Uses SMPL joint mass fractions. **IMPORTANT**: `.detach()` the foot positions for the support center to prevent a circular gradient loop (this bug was found and fixed on phase2).
-
-2. **Bilateral Foot Exclusivity Loss** — Product of left-foot velocity × right-foot velocity. Penalizes both feet sliding simultaneously.
-
-3. **Foot Height During Contact Loss** — Penalizes feet hovering above ground while model predicts contact. Ground reference = min foot height per sequence, `.detach()`ed.
-
-**Files to modify:**
-
-| File | Change |
-|------|--------|
-| `model/diffusion.py` | Add `_SMPL_JOINT_MASSES` constant, 3 loss weight attributes in `__init__`, 3 loss computations after foot skate loss in `p_losses`, extend losses tuple from 5 → 8 |
-| `EDGE.py` | Accept 3 new weight params in `__init__`, pass to diffusion constructor, unpack 8-element loss tuple, accumulate and log the 3 new losses |
-| `args.py` | Add `--com_loss_weight`, `--bilateral_loss_weight`, `--foot_height_loss_weight` (default 0.0) |
-| `train.py` | Pass the 3 new args to `EDGE()` constructor |
-
-The full implementation exists on `origin/phase2` — reference commits `6fd5e84` (initial) and `7ec7577` (gradient bug fix). Do NOT cherry-pick blindly — the phase2 branch doesn't have the FCS predictor changes. Manually port the loss code into the current codebase.
-
-**Experiments to run:**
-1. Phase 2 losses only (no FCS predictor) — isolate their effect
-2. Phase 2 losses + FCS predictor — do they stack?
-3. Weight sweep for the 3 new losses
-
-### After Priority 1
-
-See `doc/ideas.md` for the full list including: higher FCS weight experiments, curriculum/warm-up, motion quality metrics (FID, diversity, beat alignment), real data FCS baseline, post-hoc optimization, physics-guided sampling.
+See `doc/ideas.md` for the full list. Items not pursued in Phase 4 that could be explored next:
+- Curriculum / warm-up for FCS weight (not tried)
+- Foot height loss with masking — the only Phase 4 loss that failed; an acceleration- or onset-masked variant might work
+- Iterative FCS predictor refinement (retrain predictor on samples from current model)
+- Physics-guided sampling at inference time
+- Acceleration threshold tuning for CoM masking (currently 0.01, picked once and not tuned)
+- The missing combined variant `FCS w=1.0 + CoM (no bilateral)`
 
 ## Documentation
 
 - `doc/phase3_evolution.md` — Full narrative of Phase 3 development, trials/errors, and results
-- `doc/ideas.md` — All ideas for Phase 4 with priority ranking
+- `doc/phase4_evolution.md` — Full narrative of Phase 4: combined runs, bug fixes, CoM acceleration masking, real mocap baseline, qualitative findings
+- `doc/ideas.md` — All ideas, including remaining Phase 5 candidates
 - `doc/fcs_predictor.md` — FCS predictor architecture, training, and integration details
-- `doc/training_losses.md` — All 5 current loss terms explained
+- `doc/training_losses.md` — All current loss terms explained
 - `doc/eval_checkpoints.md` — How to evaluate saved checkpoints
 
 ## Training Commands

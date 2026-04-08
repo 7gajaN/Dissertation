@@ -1,8 +1,12 @@
-# Phase 4: Ideas & Next Steps
+# Phase 4 (Done) and Phase 5 Ideas
 
-This document captures potential directions for improving physics-aware dance generation, organized by category and prioritized by impact vs effort. Based on Phase 3 results where the FCS predictor loss achieved a 3.5× improvement in physics scores.
+> **Phase 4 status (2026-04-07): COMPLETE.** The reintegration plan below was executed. Best result: FCS 0.013 (10× better than real mocap), PFC 0.858. Full narrative in `doc/phase4_evolution.md`.
+>
+> Items in this document are kept as historical context and as a backlog for Phase 5. Sections marked **[DONE]** were finished in Phase 4. Sections marked **[FUTURE]** remain open.
 
-## PRIORITY 1: Reintegrate Phase 2 Physics Losses (CoM, Bilateral, Foot Height)
+## ~~PRIORITY 1~~ [DONE] Reintegrate Phase 2 Physics Losses (CoM, Bilateral, Foot Height)
+
+**Status**: completed in Phase 4. CoM and bilateral were reintegrated and found to stack with the FCS predictor. Foot height did not converge at any tested weight and was abandoned. CoM required acceleration masking to avoid suppressing dynamic dance moves — see `doc/phase4_evolution.md`.
 
 The `phase2` branch (`origin/phase2`) added three explicit physics losses directly to `p_losses` in `model/diffusion.py`. They were explored in isolation on that branch but never merged into the main line alongside the FCS predictor. The goal is to combine both approaches — the learned FCS predictor loss from Phase 3 AND these direct physics penalties — to see if they stack.
 
@@ -73,12 +77,14 @@ What's leaving performance on the table:
 
 ## A. Low-Hanging Fruit — Weight & Schedule Tuning
 
-### A1. Higher FCS Weight
+### [DONE] A1. Higher FCS Weight
 
 Try weights of 0.5, 1.0, 2.0, 5.0. The current FCS loss magnitude (~0.0003) is orders of magnitude below other losses even after the 0.12 multiplier. The effective contribution to total loss is ~0.00004, compared to reconstruction at ~0.006. There is likely significant room to push physics harder without destabilizing training.
 
 **Effort**: Low — just change `--fcs_loss_weight` and retrain.
 **Risk**: Too high a weight could degrade motion quality. Need motion quality metrics (see D9) to find the sweet spot.
+
+**[Phase 4 result]**: w=1.0 alone improved FCS from 0.047 (w=0.12) to 0.019 — 2.5× better. When combined with CoM + bilateral, w=0.12 gave the best FCS (0.013) while w=1.0 gave the best PFC (0.858). Higher weight does not stack additively with explicit losses.
 
 ### A2. Curriculum / Warm-Up
 
@@ -112,7 +118,7 @@ The existing foot contact loss (weight 10.942) uses the model's **own contact pr
 **Implementation**: In `p_losses`, detect contacts from `model_xp` foot heights/velocities (soft sigmoid like the FCS predictor), penalize foot velocity during detected contact.
 **Effort**: Medium — need to add contact detection logic to `diffusion.py`.
 
-### B6. CoM Balance Loss
+### [DONE] B6. CoM Balance Loss
 
 Revisit the phase2 branch idea: penalize center-of-mass positions that fall outside the base of support (convex hull of contact feet). This enforces static balance — a standing or slow-moving dancer should have CoM above their feet.
 
@@ -120,6 +126,8 @@ Revisit the phase2 branch idea: penalize center-of-mass positions that fall outs
 
 **Implementation**: Compute CoM from `model_xp`, compute support polygon from contact feet, penalize CoM-to-polygon distance. Detach polygon computation.
 **Effort**: Medium. **Risk**: May not suit dynamic dance — needs careful testing.
+
+**[Phase 4 result]**: Initial implementation was strictly worse than baseline at every weight tried (12-126× worse FCS). Required acceleration masking — only apply the loss on frames where CoM acceleration < 0.01 (static poses) — to become useful. With masking at w=0.05 it gave +23% over baseline, and combined with bilateral + FCS predictor it produced the best Phase 4 model. The "may not suit dynamic dance" caveat above turned out to be the central design challenge.
 
 ---
 
@@ -189,7 +197,7 @@ Each row needs FCS, PFC, and motion quality metrics (D9). This table is the core
 
 **Effort**: High — multiple training runs (each ~26 hours based on Phase 3 timing).
 
-### D11. Qualitative Comparison
+### [DONE] D11. Qualitative Comparison
 
 Render side-by-side videos of baseline vs physics-trained model on the same music clips. Select examples that highlight:
 - Foot skating reduction
@@ -200,7 +208,9 @@ Render side-by-side videos of baseline vs physics-trained model on the same musi
 **Implementation**: Use existing `test.py` + render pipeline. Pick 5–10 representative test clips.
 **Effort**: Low — infrastructure already exists.
 
-### D12. Real Data Baseline
+**[Phase 4 result]**: Three models rendered (baseline, best FCS, best balance) on the AIST++ test wavs. Side-by-side comparison videos in `renders/comparison/` made via `scripts/make_comparison_videos.sh` (ffmpeg hstack with model labels). Qualitative finding: physics-trained models are visibly more stable (planted feet, no gross balance violations) but at the cost of dampening some larger expressive moves — see Key Finding #7 in `phase4_evolution.md`.
+
+### [DONE] D12. Real Data Baseline
 
 Compute FCS on the AIST++ test set (real mocap) to establish the "ceiling" — what real motion scores look like. This contextualizes the generated results:
 
@@ -209,6 +219,8 @@ Compute FCS on the AIST++ test set (real mocap) to establish the "ceiling" — w
 
 **Implementation**: `eval_real_data_fcs.py` already exists. Just run it and record results.
 **Effort**: Very low — run existing script.
+
+**[Phase 4 result]**: Real mocap (100 AIST++ test sequences) scores FCS 0.132 mean / 0.050 median, PFC 2.180 mean / 1.788 median. Best Phase 4 model is **10× better than real mocap on FCS** and 2.5× better on PFC. Surprising finding: even the untrained baseline beats real mocap on PFC, indicating PFC is unreliable as an absolute target on this dataset (it heavily penalizes natural mocap micro-jitter). Script was extended to compute PFC alongside FCS in the same pass.
 
 ---
 
@@ -241,26 +253,28 @@ Pipeline:
 
 ## Priority Ranking
 
-### Priority 1 — Next to implement
-- **Phase 2 losses reintegration** — CoM balance, bilateral exclusivity, foot height (see top of document)
+### Phase 4 — completed
+- ~~**Phase 2 losses reintegration**~~ — done. CoM (with masking) and bilateral worked; foot height did not.
+- ~~**A1**~~ — Higher FCS weight (w=1.0) tested, improved solo result but did not stack with explicit losses.
+- ~~**D12**~~ — Real data FCS + PFC baseline computed.
+- ~~**D11**~~ — Side-by-side renders produced.
 
-### Must-do (for a complete dissertation)
-- **D9** — Motion quality metrics (FID, diversity, beat alignment)
-- **D12** — Real data FCS baseline
-- **D11** — Side-by-side render comparisons
+### Phase 5 — open backlog (priority order)
 
-### High impact, low effort
-- **A1** — Higher FCS weight experiments
-- **A2** — Curriculum / warm-up
-- **C8** — Post-hoc optimization
-- **B4** — Ground penetration loss
+**Most likely to yield gains:**
+- **Foot height with masking** — the only Phase 4 loss that failed. An acceleration- or contact-onset-masked variant analogous to what worked for CoM may rescue it.
+- **A2 / A3** — Curriculum / warm-up / annealing for FCS weight. Not tried.
+- **CoM acceleration threshold tuning** — currently 0.01, picked once and never tuned.
 
-### Good for the write-up
-- **D10** — Ablation study (systematic but time-intensive)
-- **A3** — Loss annealing
-- **C7** — Physics-guided sampling (novel contribution)
+**Worth trying for completeness:**
+- **Missing combo**: FCS w=1.0 + CoM (no bilateral), to fill the ablation grid.
+- **C8** — Post-hoc test-time optimization.
+- **C7** — Physics-guided sampling at inference (novel contribution).
 
-### Interesting but bigger scope
-- **B5** — Foot skating loss v2
+**Bigger scope:**
+- **B5** — Foot skating loss v2 (model-independent contact detection)
 - **E13** — Contact prediction head
-- **E14** — Iterative predictor refinement
+- **E14** — Iterative predictor refinement (retrain predictor on current model output)
+
+**Skipped — out of scope:**
+- **D9** — Motion quality metrics (FID, diversity, beat alignment). The EDGE paper itself argues FID is unreliable for AIST++. User decided not to pursue these.

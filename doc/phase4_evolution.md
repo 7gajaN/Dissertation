@@ -274,7 +274,7 @@ The foot height loss might benefit from similar treatment (e.g. masking during c
 
 With two working explicit losses (masked CoM at 0.05, bilateral at 5.0), the central question of Phase 4 could be tested: does combining them with the FCS predictor stack?
 
-Four 2000-epoch combined runs were executed sequentially:
+Five 2000-epoch combined runs were executed sequentially:
 
 | Run | FCS predictor | CoM (masked) | Bilateral | Purpose |
 |-----|---------------|--------------|-----------|---------|
@@ -282,6 +282,7 @@ Four 2000-epoch combined runs were executed sequentially:
 | `fcs_w1` | 1.0 | 0.0 | 0.0 | Higher FCS weight alone |
 | `fcs_com_bilateral` | 0.12 | 0.05 | 5.0 | Full combo at old FCS weight |
 | `fcs1_com_bilateral` | 1.0 | 0.05 | 5.0 | Full combo at new FCS weight |
+| `fcs1_com_bilat2` | 1.0 | 0.05 | 2.0 | Lower bilateral for looser leg expressiveness |
 
 Each run was 2000 epochs, ~26h. Evaluated with 50 samples per checkpoint.
 
@@ -293,8 +294,9 @@ Each run was 2000 epochs, ~26h. Evaluated with 50 samples per checkpoint.
 | FCS predictor w=0.12 (Phase 3 result) | 0.047 | 0.907 | 0.0045 (ep 100) |
 | FCS w=0.12 + CoM | 0.060 | 1.179 | 0.0050 (ep 400) |
 | FCS w=1.0 | 0.019 | 1.152 | 0.0018 (ep 200) |
-| **FCS w=0.12 + CoM + Bilateral** | **0.013** | 1.040 | **0.0000 (ep 100)** |
-| **FCS w=1.0 + CoM + Bilateral** | 0.018 | **0.858** | 0.0100 (ep 800) |
+| **FCS w=0.12 + CoM + Bilateral=5** | **0.013** | 1.040 | **0.0000 (ep 100)** |
+| **FCS w=1.0 + CoM + Bilateral=5** | 0.018 | **0.858** | 0.0100 (ep 800) |
+| FCS w=1.0 + CoM + Bilateral=2 | 0.028 | 0.936 | 0.0138 (ep 1800) |
 
 ### Observations
 
@@ -304,6 +306,7 @@ Each run was 2000 epochs, ~26h. Evaluated with 50 samples per checkpoint.
 4. **Two "best" models, different strengths**. There is no single winner:
    - `fcs_com_bilateral` is the best on FCS (0.013) and has a strong PFC (1.040).
    - `fcs1_com_bilateral` has the best PFC (0.858) and still beats FCS predictor alone on FCS (0.018 vs 0.047).
+5. **Lowering the bilateral weight trades physics for expressiveness.** A fifth run, `fcs1_com_bilat2`, used bilateral=2 instead of bilateral=5 to see whether the looser footwork constraint would produce visibly more expressive leg motion. Quantitatively this regressed both metrics (FCS 0.028 vs 0.018, PFC 0.936 vs 0.858) — bilateral=5 strictly dominates on numbers. Whether the qualitative gain in leg expressiveness justifies the metric loss is a judgment call to be made from the side-by-side renders, not from the table.
 
 ## Stage 7: Real Data Baseline (D12)
 
@@ -362,8 +365,9 @@ Evaluated with 50 samples per checkpoint. All physics-trained models are at epoc
 | FCS predictor w=0.12 (Phase 3 best) | 0.047 | 0.907 | 2.81× better | 2.40× better |
 | FCS w=0.12 + CoM (Phase 4) | 0.060 | 1.179 | 2.20× better | 1.85× better |
 | FCS w=1.0 (Phase 4) | 0.019 | 1.152 | 6.95× better | 1.89× better |
-| **FCS w=0.12 + CoM + Bilateral (Phase 4 best FCS)** | **0.013** | 1.040 | **10.2× better** | 2.10× better |
-| **FCS w=1.0 + CoM + Bilateral (Phase 4 best balance)** | 0.018 | **0.858** | 7.33× better | **2.54× better** |
+| **FCS w=0.12 + CoM + Bilateral=5 (Phase 4 best FCS)** | **0.013** | 1.040 | **10.2× better** | 2.10× better |
+| **FCS w=1.0 + CoM + Bilateral=5 (Phase 4 best balance)** | 0.018 | **0.858** | 7.33× better | **2.54× better** |
+| FCS w=1.0 + CoM + Bilateral=2 (looser legs variant) | 0.028 | 0.936 | 4.71× better | 2.33× better |
 
 ## Key Findings
 
