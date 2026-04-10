@@ -34,7 +34,7 @@ from model.model import DanceDecoder
 from vis import SMPLSkeleton
 
 
-def load_model(checkpoint_path, feature_type="jukebox", device="cuda"):
+def load_model(checkpoint_path, feature_type="jukebox", device="cuda", fcs_predictor_path=""):
     """Load a model from a checkpoint."""
     checkpoint = torch.load(checkpoint_path, map_location=device, weights_only=False)
 
@@ -79,6 +79,26 @@ def load_model(checkpoint_path, feature_type="jukebox", device="cuda"):
     diffusion.eval()
 
     normalizer = checkpoint["normalizer"]
+
+    # Optionally attach FCS predictor for inference-time physics guidance
+    if fcs_predictor_path and os.path.exists(fcs_predictor_path):
+        from model.fcs_predictor import FCSPredictor
+        ckpt_fcs = torch.load(fcs_predictor_path, map_location=device, weights_only=False)
+        predictor_args = ckpt_fcs.get("args", None)
+        if predictor_args is not None:
+            predictor = FCSPredictor(
+                hidden_dim=predictor_args.hidden_dim,
+                num_layers=predictor_args.num_layers,
+                dropout=predictor_args.dropout,
+            ).to(device)
+        else:
+            predictor = FCSPredictor().to(device)
+        predictor.load_state_dict(ckpt_fcs["model_state_dict"])
+        predictor.eval()
+        diffusion.fcs_predictor = predictor
+        diffusion.attach_normalizer(normalizer)
+        print(f"  FCS predictor loaded from {fcs_predictor_path}")
+
     return diffusion, normalizer, smpl
 
 
@@ -99,7 +119,10 @@ def load_test_data(data_path="data/", processed_dir="data/dataset_backups/", fea
     return test_dataset
 
 
-def generate_and_evaluate(diffusion, normalizer, smpl, test_dataset, num_samples, device="cuda"):
+def generate_and_evaluate(
+    diffusion, normalizer, smpl, test_dataset, num_samples, device="cuda",
+    guidance_scale=0.0, guidance_start_step=25,
+):
     """Generate samples and compute FCS/PFC scores."""
     evaluator = ForceConsistencyEvaluator(fps=30)
     horizon = 150
@@ -126,7 +149,11 @@ def generate_and_evaluate(diffusion, normalizer, smpl, test_dataset, num_samples
         cond = torch.stack([all_cond[i] for i in indices]).to(device)
 
         with torch.no_grad():
-            samples = diffusion.ddim_sample(shape, cond)
+            samples = diffusion.ddim_sample(
+                shape, cond,
+                guidance_scale=guidance_scale,
+                guidance_start_step=guidance_start_step,
+            )
             samples = normalizer.unnormalize(samples)
 
             b, s, c = samples.shape
@@ -152,11 +179,18 @@ def generate_and_evaluate(diffusion, normalizer, smpl, test_dataset, num_samples
     return np.array(fcs_scores), np.array(pfc_scores)
 
 
-def evaluate_checkpoint(checkpoint_path, test_dataset, num_samples, feature_type="jukebox", device="cuda"):
+def evaluate_checkpoint(
+    checkpoint_path, test_dataset, num_samples, feature_type="jukebox", device="cuda",
+    fcs_predictor_path="", guidance_scale=0.0, guidance_start_step=25,
+):
     """Evaluate a single checkpoint."""
-    diffusion, normalizer, smpl = load_model(checkpoint_path, feature_type, device)
+    diffusion, normalizer, smpl = load_model(
+        checkpoint_path, feature_type, device, fcs_predictor_path=fcs_predictor_path,
+    )
     fcs_scores, pfc_scores = generate_and_evaluate(
-        diffusion, normalizer, smpl, test_dataset, num_samples, device
+        diffusion, normalizer, smpl, test_dataset, num_samples, device,
+        guidance_scale=guidance_scale,
+        guidance_start_step=guidance_start_step,
     )
 
     result = {
@@ -186,6 +220,18 @@ def main():
     parser.add_argument("--processed_data_dir", type=str, default="data/dataset_backups/")
     parser.add_argument("--output", type=str, default="", help="Output file path (default: run_dir/eval_results.json)")
     parser.add_argument("--device", type=str, default="cuda")
+    parser.add_argument(
+        "--fcs_predictor_path", type=str, default="models/fcs_predictor.pt",
+        help="Path to trained FCS predictor (used only if --guidance_scale > 0)",
+    )
+    parser.add_argument(
+        "--guidance_scale", type=float, default=0.0,
+        help="Inference-time physics guidance scale (0.0 = disabled)",
+    )
+    parser.add_argument(
+        "--guidance_start_step", type=int, default=25,
+        help="DDIM step index at which to start applying guidance (default 25/50)",
+    )
     args = parser.parse_args()
 
     if not args.checkpoint and not args.run_dir:
@@ -211,6 +257,11 @@ def main():
     test_dataset = load_test_data(args.data_path, args.processed_data_dir, args.feature_type)
     print(f"Test dataset: {len(test_dataset)} samples\n")
 
+    # Pass FCS predictor only when guidance is enabled
+    fcs_predictor_path = args.fcs_predictor_path if args.guidance_scale > 0 else ""
+    if args.guidance_scale > 0:
+        print(f"Inference-time physics guidance enabled: scale={args.guidance_scale}, start_step={args.guidance_start_step}")
+
     # Evaluate each checkpoint
     results = {}
     for ckpt_path in checkpoints:
@@ -219,7 +270,12 @@ def main():
         print(f"Epoch {epoch}: {ckpt_path}")
         print(f"{'='*60}")
 
-        result = evaluate_checkpoint(ckpt_path, test_dataset, args.num_samples, args.feature_type, args.device)
+        result = evaluate_checkpoint(
+            ckpt_path, test_dataset, args.num_samples, args.feature_type, args.device,
+            fcs_predictor_path=fcs_predictor_path,
+            guidance_scale=args.guidance_scale,
+            guidance_start_step=args.guidance_start_step,
+        )
         results[epoch] = result
 
         print(f"  FCS: {result['fcs_mean']:.4f} +/- {result['fcs_std']:.4f} (median: {result['fcs_median']:.4f})")
@@ -240,7 +296,11 @@ def main():
     output_path = args.output
     if not output_path:
         output_dir = args.run_dir if args.run_dir else os.path.dirname(args.checkpoint)
-        output_path = os.path.join(output_dir, "eval_results.json")
+        if args.guidance_scale > 0:
+            fname = f"eval_results_guided_w{args.guidance_scale}_s{args.guidance_start_step}.json"
+        else:
+            fname = "eval_results.json"
+        output_path = os.path.join(output_dir, fname)
 
     with open(output_path, "w") as f:
         json.dump({"num_samples": args.num_samples, "results": {str(k): v for k, v in results.items()}}, f, indent=2)

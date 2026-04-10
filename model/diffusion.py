@@ -294,8 +294,51 @@ class GaussianDiffusion(nn.Module):
         else:
             return x
         
-    @torch.no_grad()
-    def ddim_sample(self, shape, cond, **kwargs):
+    def attach_normalizer(self, normalizer):
+        """
+        Cache the dataset normalizer's MinMaxScaler params as buffers so we can
+        differentiably unnormalize during inference-time physics guidance. The
+        FCS predictor was trained on unnormalized joint positions, so guidance
+        must feed it unnormalized x_start to get calibrated outputs.
+
+        The dataset's MinMaxScaler.inverse_transform is in-place and would
+        break autograd, so we apply the affine inverse manually instead.
+        """
+        scaler = normalizer.scaler
+        device = self.betas.device
+        # MinMaxScaler.transform: x_scaled = x * scale_ + min_
+        # MinMaxScaler.inverse_transform: x = (x_scaled - min_) / scale_
+        scale = scaler.scale_.detach().clone().to(device).float()
+        min_ = scaler.min_.detach().clone().to(device).float()
+        self.register_buffer("_unnorm_scale", scale, persistent=False)
+        self.register_buffer("_unnorm_min", min_, persistent=False)
+
+    def _apply_physics_guidance(self, x_start, x_next, guidance_scale):
+        """
+        Inference-time physics guidance via FCS predictor gradient.
+
+        Computes ∇_{x_start} FCS_predictor(FK(unnormalize(x_start))) and
+        subtracts guidance_scale * grad from x_next. Operates on a detached
+        copy of x_start so no gradient flows back through the diffusion model.
+        """
+        x_in = x_start.detach().requires_grad_(True)
+        with torch.enable_grad():
+            # Unnormalize: predictor was trained on unnormalized joint positions
+            if hasattr(self, "_unnorm_scale"):
+                x_clip = torch.clamp(x_in, -1.0, 1.0)
+                x_unnorm = (x_clip - self._unnorm_min) / self._unnorm_scale
+            else:
+                x_unnorm = x_in
+            b_, s_, _ = x_unnorm.shape
+            # 151D layout: [0:4] contact, [4:7] root pos, [7:151] 24×6 rotations
+            pos = x_unnorm[:, :, 4:7]
+            q = ax_from_6v(x_unnorm[:, :, 7:].reshape(b_, s_, -1, 6))
+            joints = self.smpl.forward(q, pos)  # (b, s, 24, 3)
+            fcs_score = self.fcs_predictor(joints).mean()
+            grad = torch.autograd.grad(fcs_score, x_in)[0]
+        return x_next - guidance_scale * grad.detach()
+
+    def ddim_sample(self, shape, cond, guidance_scale=0.0, guidance_start_step=25, **kwargs):
         batch, device, total_timesteps, sampling_timesteps, eta = shape[0], self.betas.device, self.n_timestep, 50, 1
 
         times = torch.linspace(-1, total_timesteps - 1, steps=sampling_timesteps + 1)   # [-1, 0, 1, 2, ..., T-1] when sampling_timesteps == total_timesteps
@@ -307,9 +350,12 @@ class GaussianDiffusion(nn.Module):
 
         x_start = None
 
-        for time, time_next in tqdm(time_pairs, desc = 'sampling loop time step'):
+        use_guidance = guidance_scale > 0 and self.fcs_predictor is not None
+
+        for step_idx, (time, time_next) in enumerate(tqdm(time_pairs, desc = 'sampling loop time step')):
             time_cond = torch.full((batch,), time, device=device, dtype=torch.long)
-            pred_noise, x_start, *_ = self.model_predictions(x, cond, time_cond, clip_x_start = self.clip_denoised)
+            with torch.no_grad():
+                pred_noise, x_start, *_ = self.model_predictions(x, cond, time_cond, clip_x_start = self.clip_denoised)
 
             if time_next < 0:
                 x = x_start
@@ -326,14 +372,20 @@ class GaussianDiffusion(nn.Module):
             x = x_start * alpha_next.sqrt() + \
                   c * pred_noise + \
                   sigma * noise
+
+            if use_guidance and step_idx >= guidance_start_step:
+                x = self._apply_physics_guidance(x_start, x, guidance_scale)
         return x
-    
-    @torch.no_grad()
-    def long_ddim_sample(self, shape, cond, **kwargs):
+
+    def long_ddim_sample(self, shape, cond, guidance_scale=0.0, guidance_start_step=25, **kwargs):
         batch, device, total_timesteps, sampling_timesteps, eta = shape[0], self.betas.device, self.n_timestep, 50, 1
-        
+
         if batch == 1:
-            return self.ddim_sample(shape, cond)
+            return self.ddim_sample(
+                shape, cond,
+                guidance_scale=guidance_scale,
+                guidance_start_step=guidance_start_step,
+            )
 
         times = torch.linspace(-1, total_timesteps - 1, steps=sampling_timesteps + 1)   # [-1, 0, 1, 2, ..., T-1] when sampling_timesteps == total_timesteps
         times = list(reversed(times.int().tolist()))
@@ -342,16 +394,19 @@ class GaussianDiffusion(nn.Module):
 
         x = torch.randn(shape, device = device)
         cond = cond.to(device)
-        
+
         assert batch > 1
         assert x.shape[1] % 2 == 0
         half = x.shape[1] // 2
 
         x_start = None
 
-        for time, time_next, weight in tqdm(time_pairs, desc = 'sampling loop time step'):
+        use_guidance = guidance_scale > 0 and self.fcs_predictor is not None
+
+        for step_idx, (time, time_next, weight) in enumerate(tqdm(time_pairs, desc = 'sampling loop time step')):
             time_cond = torch.full((batch,), time, device=device, dtype=torch.long)
-            pred_noise, x_start, *_ = self.model_predictions(x, cond, time_cond, weight=weight, clip_x_start = self.clip_denoised) 
+            with torch.no_grad():
+                pred_noise, x_start, *_ = self.model_predictions(x, cond, time_cond, weight=weight, clip_x_start = self.clip_denoised)
 
             if time_next < 0:
                 x = x_start
@@ -368,7 +423,10 @@ class GaussianDiffusion(nn.Module):
             x = x_start * alpha_next.sqrt() + \
                   c * pred_noise + \
                   sigma * noise
-            
+
+            if use_guidance and step_idx >= guidance_start_step:
+                x = self._apply_physics_guidance(x_start, x, guidance_scale)
+
             if time > 0:
                 # the first half of each sequence is the second half of the previous one
                 x[1:, :half] = x[:-1, half:]
@@ -668,7 +726,9 @@ class GaussianDiffusion(nn.Module):
         constraint=None,
         sound_folder="ood_sliced",
         start_point=None,
-        render=True
+        render=True,
+        guidance_scale=0.0,
+        guidance_start_step=25,
     ):
         if isinstance(shape, tuple):
             if mode == "inpaint":
@@ -686,6 +746,8 @@ class GaussianDiffusion(nn.Module):
                     noise=noise,
                     constraint=constraint,
                     start_point=start_point,
+                    guidance_scale=guidance_scale,
+                    guidance_start_step=guidance_start_step,
                 )
                 .detach()
                 .cpu()

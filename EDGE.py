@@ -161,6 +161,9 @@ class EDGE:
 
                 # Attach predictor to diffusion model so it's used in p_losses
                 self.diffusion.fcs_predictor = self.fcs_predictor
+                # Cache normalizer for differentiable unnormalize during inference guidance
+                if hasattr(self, 'normalizer') and self.normalizer is not None:
+                    self.diffusion.attach_normalizer(self.normalizer)
 
                 print("="*60)
                 print(f"✓ FCS predictor loaded from {fcs_predictor_path}")
@@ -745,7 +748,8 @@ class EDGE:
             wandb.run.finish()
 
     def render_sample(
-        self, data_tuple, label, render_dir, render_count=-1, fk_out=None, render=True
+        self, data_tuple, label, render_dir, render_count=-1, fk_out=None, render=True,
+        guidance_scale=0.0, guidance_start_step=25,
     ):
         _, cond, wavname = data_tuple
         assert len(cond.shape) == 3
@@ -763,5 +767,7 @@ class EDGE:
             sound=True,
             mode="long",
             fk_out=fk_out,
-            render=render
+            render=render,
+            guidance_scale=guidance_scale,
+            guidance_start_step=guidance_start_step,
         )

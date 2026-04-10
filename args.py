@@ -123,5 +123,23 @@ def parse_test_opt():
         action="store_true",
         help="Use the first segment of each song instead of random (useful for Blender sync)",
     )
+    parser.add_argument(
+        "--fcs_predictor_path",
+        type=str,
+        default="models/fcs_predictor.pt",
+        help="Path to trained FCS predictor (used for inference-time physics guidance)",
+    )
+    parser.add_argument(
+        "--guidance_scale",
+        type=float,
+        default=0.0,
+        help="Inference-time physics guidance scale (0.0 = disabled)",
+    )
+    parser.add_argument(
+        "--guidance_start_step",
+        type=int,
+        default=25,
+        help="DDIM step index at which to start applying physics guidance (default 25/50)",
+    )
     opt = parser.parse_args()
     return opt

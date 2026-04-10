@@ -112,7 +112,11 @@ def test(opt):
             all_cond.append(cond_list)
             all_filenames.append(file_list[rand_idx : rand_idx + sample_size])
 
-    model = EDGE(opt.feature_type, opt.checkpoint)
+    model = EDGE(
+        opt.feature_type,
+        opt.checkpoint,
+        fcs_predictor_path=opt.fcs_predictor_path if opt.guidance_scale > 0 else "",
+    )
     model.eval()
 
     print(f"Total samples loaded: {len(all_cond)}")
@@ -134,7 +138,9 @@ def test(opt):
         print(f"  First file: {all_filenames[i][0] if all_filenames[i] else 'None'}")
         print(f"  fk_out: {fk_out}")
         model.render_sample(
-            data_tuple, "test", opt.render_dir, render_count=-1, fk_out=fk_out, render=not opt.no_render
+            data_tuple, "test", opt.render_dir, render_count=-1, fk_out=fk_out, render=not opt.no_render,
+            guidance_scale=opt.guidance_scale,
+            guidance_start_step=opt.guidance_start_step,
         )
     print("Done")
     torch.cuda.empty_cache()
